@@ -16885,3 +16885,120 @@ if __name__ == "__main__":
             logger.info(line)
 
     app.run(host="0.0.0.0", port=API_PORT, debug=DEBUG_MODE)
+
+# ============================================================================
+# MOBILE SECURITY TOOLS (PHASE 2)
+# ============================================================================
+
+@app.route("/api/tools/mobile/apk-analyze", methods=["POST"])
+def mobile_apk_analyze():
+    """Analyze APK using multiple tools"""
+    try:
+        from tools.mobile.apk_tools import apktool_decompile, jadx_decompile, androguard_analyze
+        
+        params = request.json
+        apk_path = params.get("apk_path")
+        
+        results = {
+            "apktool": apktool_decompile(apk_path),
+            "jadx": jadx_decompile(apk_path),
+            "androguard": androguard_analyze(apk_path)
+        }
+        
+        return jsonify({"success": True, "results": results})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/tools/mobile/ios-analyze", methods=["POST"])
+def mobile_ios_analyze():
+    """Analyze iOS IPA"""
+    try:
+        from tools.mobile.ios_tools import ipa_analyzer, class_dump
+        
+        params = request.json
+        ipa_path = params.get("ipa_path")
+        
+        results = {"ipa_analysis": ipa_analyzer(ipa_path)}
+        return jsonify({"success": True, "results": results})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ============================================================================
+# API SECURITY TOOLS (PHASE 2)
+# ============================================================================
+
+@app.route("/api/tools/api/discover", methods=["POST"])
+def api_discovery():
+    """API endpoint discovery"""
+    try:
+        from tools.api.api_discovery import api_routes_finder, swagger_scanner, graphql_cop_scan
+        
+        params = request.json
+        target = params.get("target")
+        
+        results = {
+            "routes": api_routes_finder(target),
+            "swagger": swagger_scanner(target),
+            "graphql": graphql_cop_scan(f"{target}/graphql") if params.get("check_graphql") else None
+        }
+        
+        return jsonify({"success": True, "results": results})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/tools/api/fuzz", methods=["POST"])
+def api_fuzzing():
+    """API fuzzing and injection testing"""
+    try:
+        from tools.api.api_fuzzing import rest_attacker, api_injection_scanner
+        
+        params = request.json
+        target = params.get("target")
+        
+        results = {
+            "fuzzing": rest_attacker(target, method=params.get("method", "GET")),
+            "injection": api_injection_scanner(target)
+        }
+        
+        return jsonify({"success": True, "results": results})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ============================================================================
+# WIRELESS SECURITY TOOLS (PHASE 2)
+# ============================================================================
+
+@app.route("/api/tools/wireless/wifi-attack", methods=["POST"])
+def wireless_wifi():
+    """WiFi security testing"""
+    try:
+        from tools.wireless.wifi_tools import wifite2_attack, bettercap_wifi
+        
+        params = request.json
+        interface = params.get("interface", "wlan0")
+        
+        results = {"wifite2": wifite2_attack(interface, params.get("target_ssid"))}
+        return jsonify({"success": True, "results": results})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/tools/wireless/bluetooth-scan", methods=["POST"])
+def wireless_bluetooth():
+    """Bluetooth security testing"""
+    try:
+        from tools.wireless.bluetooth_tools import bluez_scan, blueborne_scanner
+        
+        results = {
+            "scan": bluez_scan(),
+            "blueborne": blueborne_scanner(request.json.get("target")) if request.json.get("target") else None
+        }
+        
+        return jsonify({"success": True, "results": results})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+

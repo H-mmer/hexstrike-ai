@@ -997,3 +997,101 @@ import traceback
 import time
 import random
 
+
+    def _get_mobile_tool_effectiveness(self) -> Dict[str, float]:
+        """Tool effectiveness ratings for mobile targets"""
+        return {
+            # APK Analysis
+            "apktool": 0.95,
+            "jadx": 0.93,
+            "androguard": 0.90,
+            "mobsf": 0.97,
+            "dex2jar": 0.88,
+            "frida": 0.92,
+            # iOS Analysis
+            "class-dump": 0.90,
+            "frida-ios-dump": 0.93,
+            "objection": 0.91,
+            "ipa-analyzer": 0.85,
+            # Mobile Exploitation
+            "drozer": 0.94,
+            "needle": 0.92
+        }
+    
+    def _get_api_tool_effectiveness(self) -> Dict[str, float]:
+        """Tool effectiveness ratings for API targets"""
+        return {
+            # API Discovery
+            "kiterunner": 0.92,
+            "swagger-scanner": 0.90,
+            "graphql-cop": 0.88,
+            "api-routes-finder": 0.85,
+            # API Auth Testing
+            "jwt-hack": 0.93,
+            "oauth-scanner": 0.89,
+            "api-key-brute": 0.75,
+            # API Fuzzing
+            "rest-attacker": 0.87,
+            "graphql-path-enum": 0.85,
+            "api-injection-scanner": 0.91,
+            "schema-fuzzer": 0.88
+        }
+    
+    def _get_wireless_tool_effectiveness(self) -> Dict[str, float]:
+        """Tool effectiveness ratings for wireless targets"""
+        return {
+            # WiFi
+            "wifite2": 0.95,
+            "airgeddon": 0.92,
+            "bettercap": 0.93,
+            "reaver": 0.88,
+            "pixie-dust": 0.85,
+            # Bluetooth
+            "bluez-tools": 0.87,
+            "blueborne-scanner": 0.90,
+            "btlejack": 0.89,
+            # RF
+            "rtl-sdr": 0.85,
+            "hackrf-tools": 0.88,
+            "gqrx": 0.82
+        }
+    
+    def select_mobile_tools(self, app_type: str, analysis_depth: str = "comprehensive") -> List[str]:
+        """Select optimal tools for mobile app analysis"""
+        if app_type == "android":
+            if analysis_depth == "quick":
+                return ["androguard", "apktool"]
+            elif analysis_depth == "comprehensive":
+                return ["mobsf", "jadx", "apktool", "androguard", "drozer", "frida"]
+        elif app_type == "ios":
+            if analysis_depth == "quick":
+                return ["ipa-analyzer", "class-dump"]
+            elif analysis_depth == "comprehensive":
+                return ["frida-ios-dump", "class-dump", "objection", "ipa-analyzer", "needle"]
+        return []
+    
+    def select_api_tools(self, api_type: str, test_type: str = "discovery") -> List[str]:
+        """Select optimal tools for API testing"""
+        if test_type == "discovery":
+            return ["kiterunner", "swagger-scanner", "api-routes-finder"]
+        elif test_type == "authentication":
+            return ["jwt-hack", "oauth-scanner", "bearer-token-analyzer"]
+        elif test_type == "fuzzing":
+            return ["rest-attacker", "api-injection-scanner", "schema-fuzzer"]
+        elif test_type == "comprehensive":
+            return ["kiterunner", "swagger-scanner", "jwt-hack", "rest-attacker", "api-injection-scanner"]
+        return []
+    
+    def select_wireless_tools(self, target_type: str, attack_mode: str = "passive") -> List[str]:
+        """Select optimal tools for wireless testing"""
+        if target_type == "wifi":
+            if attack_mode == "passive":
+                return ["bettercap", "wifite2"]
+            else:
+                return ["wifite2", "airgeddon", "reaver", "pixie-dust"]
+        elif target_type == "bluetooth":
+            return ["bluez-tools", "blueborne-scanner", "btlejack"]
+        elif target_type == "rf":
+            return ["rtl-sdr", "hackrf-tools", "gqrx"]
+        return []
+
