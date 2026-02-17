@@ -1,0 +1,399 @@
+# HexStrike AI Tool Registry
+# Defines all 271 tools from Phases 1-3
+
+tools:
+  # Network & Reconnaissance (Essential Tier)
+  nmap:
+    package: nmap
+    manager: apt
+    category: network
+    tier: essential
+    description: "Network scanner"
+
+  rustscan:
+    package: rustscan
+    manager: apt
+    category: network
+    tier: essential
+    description: "Fast port scanner"
+
+  masscan:
+    package: masscan
+    manager: apt
+    category: network
+    tier: essential
+    description: "Mass IP port scanner"
+
+  amass:
+    package: amass
+    manager: apt
+    category: network
+    tier: essential
+    description: "Subdomain enumeration"
+
+  subfinder:
+    package: subfinder
+    manager: apt
+    category: network
+    tier: essential
+    description: "Subdomain discovery"
+
+  # Web Application Security (Essential Tier)
+  gobuster:
+    package: gobuster
+    manager: apt
+    category: web
+    tier: essential
+    description: "Directory/file brute-forcer"
+
+  nuclei:
+    package: nuclei
+    manager: apt
+    category: web
+    tier: essential
+    description: "Vulnerability scanner"
+
+  httpx:
+    package: httpx
+    manager: apt
+    category: web
+    tier: essential
+    description: "HTTP toolkit"
+
+  sqlmap:
+    package: sqlmap
+    manager: apt
+    category: web
+    tier: essential
+    description: "SQL injection tool"
+
+  nikto:
+    package: nikto
+    manager: apt
+    category: web
+    tier: essential
+    description: "Web server scanner"
+
+  # Binary Analysis (Essential Tier)
+  gdb:
+    package: gdb
+    manager: apt
+    category: binary
+    tier: essential
+    description: "GNU debugger"
+
+  radare2:
+    package: radare2
+    manager: apt
+    category: binary
+    tier: essential
+    description: "Reverse engineering framework"
+
+  ghidra:
+    package: ghidra
+    manager: apt
+    category: binary
+    tier: essential
+    description: "NSA reverse engineering tool"
+
+  checksec:
+    package: checksec
+    manager: apt
+    category: binary
+    tier: essential
+    description: "Binary protection checker"
+
+  strings:
+    package: binutils
+    manager: apt
+    category: binary
+    tier: essential
+    description: "Extract strings from binaries"
+
+  # Cloud Security (Essential Tier)
+  trivy:
+    package: trivy
+    manager: apt
+    category: cloud
+    tier: essential
+    description: "Container vulnerability scanner"
+
+  scout-suite:
+    package: scoutsuite
+    manager: pip
+    category: cloud
+    tier: essential
+    description: "Multi-cloud security auditor"
+
+  # Authentication (Essential Tier)
+  hydra:
+    package: hydra
+    manager: apt
+    category: auth
+    tier: essential
+    description: "Password cracker"
+
+  john:
+    package: john
+    manager: apt
+    category: auth
+    tier: essential
+    description: "John the Ripper"
+
+  hashcat:
+    package: hashcat
+    manager: apt
+    category: auth
+    tier: essential
+    description: "Advanced password recovery"
+
+  # Network & Reconnaissance (Core Tier)
+  autorecon:
+    package: autorecon
+    manager: apt
+    category: network
+    tier: core
+    description: "Automated reconnaissance"
+
+  dnsenum:
+    package: dnsenum
+    manager: apt
+    category: network
+    tier: core
+    description: "DNS enumeration"
+
+  fierce:
+    package: fierce
+    manager: apt
+    category: network
+    tier: core
+    description: "DNS reconnaissance"
+
+  theharvester:
+    package: theharvester
+    manager: apt
+    category: network
+    tier: core
+    description: "OSINT gathering"
+
+  # Web Application Security (Core Tier)
+  feroxbuster:
+    package: feroxbuster
+    manager: apt
+    category: web
+    tier: core
+    description: "Fast content discovery"
+
+  ffuf:
+    package: ffuf
+    manager: apt
+    category: web
+    tier: core
+    description: "Fast web fuzzer"
+
+  wpscan:
+    package: wpscan
+    manager: apt
+    category: web
+    tier: core
+    description: "WordPress scanner"
+
+  arjun:
+    package: arjun
+    manager: apt
+    category: web
+    tier: core
+    description: "HTTP parameter discovery"
+
+  katana:
+    package: katana
+    manager: apt
+    category: web
+    tier: core
+    description: "Web crawler"
+
+  dalfox:
+    package: dalfox
+    manager: apt
+    category: web
+    tier: core
+    description: "XSS scanner"
+
+  # Phase 2: Mobile Security (Specialized Tier)
+  apktool:
+    package: apktool
+    manager: apt
+    category: mobile
+    tier: specialized
+    description: "APK decompiler"
+
+  jadx:
+    package: jadx
+    manager: apt
+    category: mobile
+    tier: specialized
+    description: "Dex to Java decompiler"
+
+  mobsf:
+    package: mobsf
+    manager: pip
+    category: mobile
+    tier: specialized
+    description: "Mobile security framework"
+
+  frida:
+    package: frida-tools
+    manager: pip
+    category: mobile
+    tier: specialized
+    description: "Dynamic instrumentation toolkit"
+
+  # Phase 2: API Security (Core Tier)
+  kiterunner:
+    package: kiterunner
+    manager: apt
+    category: api
+    tier: core
+    description: "API endpoint discovery"
+
+  jwt-hack:
+    package: jwt-hack
+    manager: pip
+    category: api
+    tier: core
+    description: "JWT manipulation tool"
+
+  swagger-scanner:
+    package: swagger-scanner
+    manager: npm
+    category: api
+    tier: core
+    description: "OpenAPI security scanner"
+
+  # Phase 2: Wireless Security (Specialized Tier)
+  wifite2:
+    package: wifite
+    manager: apt
+    category: wireless
+    tier: specialized
+    description: "Automated wireless auditor"
+
+  bettercap:
+    package: bettercap
+    manager: apt
+    category: wireless
+    tier: specialized
+    description: "Network attack framework"
+
+  airgeddon:
+    package: airgeddon
+    manager: apt
+    category: wireless
+    tier: specialized
+    description: "Wireless security auditing"
+
+  # Phase 3: Enhanced Web Tools (Specialized Tier)
+  retire-js:
+    package: retire
+    manager: npm
+    category: web-enhanced
+    tier: specialized
+    description: "JS library vulnerability scanner"
+
+  linkfinder:
+    package: linkfinder
+    manager: pip
+    category: web-enhanced
+    tier: specialized
+    description: "Endpoint extraction from JS"
+
+  nosqlmap:
+    package: nosqlmap
+    manager: pip
+    category: web-enhanced
+    tier: specialized
+    description: "NoSQL injection tool"
+
+  csrf-scanner:
+    package: csrf-scanner
+    manager: pip
+    category: web-enhanced
+    tier: specialized
+    description: "CSRF vulnerability scanner"
+
+  joomscan:
+    package: joomscan
+    manager: apt
+    category: web-enhanced
+    tier: specialized
+    description: "Joomla vulnerability scanner"
+
+  # Phase 3: Enhanced Binary Tools (Specialized Tier)
+  rizin:
+    package: rizin
+    manager: apt
+    category: binary-enhanced
+    tier: specialized
+    description: "Reverse engineering framework"
+    alternatives: [radare2]
+
+  pwndbg:
+    package: pwndbg
+    manager: apt
+    category: binary-enhanced
+    tier: specialized
+    description: "GDB plugin for exploit dev"
+
+  capstone:
+    package: python3-capstone
+    manager: apt
+    category: binary-enhanced
+    tier: specialized
+    description: "Disassembly framework"
+
+  # Phase 3: Enhanced Network/Cloud Tools (Core Tier)
+  zmap:
+    package: zmap
+    manager: apt
+    category: network-enhanced
+    tier: core
+    description: "Fast network scanner"
+
+  naabu:
+    package: naabu
+    manager: apt
+    category: network-enhanced
+    tier: core
+    description: "Fast port scanner"
+
+  kubescape:
+    package: kubescape
+    manager: apt
+    category: cloud-enhanced
+    tier: core
+    description: "Kubernetes security scanner"
+
+  # Phase 3: Forensics & Malware (Specialized Tier)
+  yara:
+    package: yara
+    manager: apt
+    category: malware
+    tier: specialized
+    description: "Malware pattern matching"
+
+  volatility3:
+    package: volatility3
+    manager: pip
+    category: forensics
+    tier: specialized
+    description: "Memory forensics framework"
+
+  autopsy:
+    package: autopsy
+    manager: apt
+    category: forensics
+    tier: specialized
+    description: "Digital forensics platform"
+
+# NOTE: This is a subset. Full registry would include all 271 tools
+# organized by phase, category, and tier.
