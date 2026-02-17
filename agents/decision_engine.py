@@ -982,22 +982,6 @@ class IntelligentDecisionEngine:
         chain.risk_level = profile.risk_level
 
         return chain
-
-# Global decision engine instance
-decision_engine = IntelligentDecisionEngine()
-
-# ============================================================================
-# INTELLIGENT ERROR HANDLING AND RECOVERY SYSTEM (v11.0 ENHANCEMENT)
-# ============================================================================
-
-from enum import Enum
-from dataclasses import dataclass
-from typing import Callable, Union
-import traceback
-import time
-import random
-
-
     def _get_mobile_tool_effectiveness(self) -> Dict[str, float]:
         """Tool effectiveness ratings for mobile targets"""
         return {
@@ -1095,3 +1079,146 @@ import random
             return ["rtl-sdr", "hackrf-tools", "gqrx"]
         return []
 
+    # Phase 3: Enhanced Tool Effectiveness (70 new tools)
+    def _get_enhanced_web_tool_effectiveness(self) -> Dict[str, float]:
+        """Tool effectiveness ratings for enhanced web tools"""
+        return {
+            # JS Analysis
+            "retire-js": 0.90,
+            "linkfinder": 0.88,
+            "subjs": 0.85,
+            "trufflehog": 0.93,
+            "secretfinder": 0.91,
+            "sourcemapper": 0.82,
+            "jsluice": 0.86,
+            # Injection Testing
+            "nosqlmap": 0.89,
+            "ssrf-sheriff": 0.91,
+            "xxeinjector": 0.87,
+            "ssti-scanner": 0.90,
+            "crlf-injection-scanner": 0.84,
+            # Auth Testing
+            "csrf-scanner": 0.88,
+            "session-hijacking-kit": 0.86,
+            "cookie-analyzer": 0.85,
+            "saml-raider": 0.92,
+            "keycloak-scanner": 0.87,
+            "password-reset-analyzer": 0.84,
+            # CMS Scanners
+            "joomscan": 0.93,
+            "droopescan": 0.92,
+            "magescan": 0.90,
+            "shopware-scanner": 0.85,
+            "prestashop-scanner": 0.86,
+            # CDN Tools
+            "cdn-scanner": 0.88,
+            "cache-poisoner": 0.86,
+            "cdn-bypass": 0.84,
+            "cloudflare-bypass": 0.87
+        }
+
+    def _get_enhanced_network_tool_effectiveness(self) -> Dict[str, float]:
+        """Tool effectiveness ratings for enhanced network and cloud tools"""
+        return {
+            # Advanced Network
+            "scapy": 0.92,
+            "zmap": 0.94,
+            "naabu": 0.91,
+            "udp-proto-scanner": 0.85,
+            "ipv6-toolkit": 0.87,
+            "vlan-hopper": 0.83,
+            "cisco-torch": 0.89,
+            "snmp-check": 0.88,
+            # Cloud-Native
+            "kubescape": 0.93,
+            "popeye": 0.91,
+            "rbac-police": 0.89,
+            "kubesec": 0.90,
+            "aws-vault": 0.85,
+            "azure-security-scan": 0.88,
+            "gcp-firewall-enum": 0.86,
+            # Container Escape
+            "deepce": 0.92,
+            "amicontained": 0.87,
+            "docker-escape-scanner": 0.91,
+            "cdk": 0.93,
+            "peirates": 0.90
+        }
+
+    def _get_enhanced_binary_tool_effectiveness(self) -> Dict[str, float]:
+        """Tool effectiveness ratings for enhanced binary and forensics tools"""
+        return {
+            # Enhanced Binary Analysis
+            "ida-free": 0.94,
+            "rizin": 0.92,
+            "cutter": 0.91,
+            "binary-ninja-free": 0.93,
+            "ret-sync": 0.85,
+            "pwndbg": 0.92,
+            "unicorn": 0.88,
+            "capstone": 0.90,
+            # Malware Analysis
+            "cuckoo-sandbox": 0.95,
+            "yara": 0.93,
+            "pestudio": 0.89,
+            "strings-extended": 0.82,
+            "floss": 0.91,
+            "hollows-hunter": 0.90,
+            # Forensics
+            "autopsy-cli": 0.92,
+            "plaso": 0.94,
+            "rekall": 0.93,
+            "ftk-imager-cli": 0.91,
+            "dc3dd": 0.88,
+            "guymager": 0.86
+        }
+
+    def select_web_injection_tools(self, injection_type: str = "all") -> List[str]:
+        """Select optimal tools for web injection testing"""
+        if injection_type == "nosql":
+            return ["nosqlmap", "api-injection-scanner"]
+        elif injection_type == "ssrf":
+            return ["ssrf-sheriff", "nuclei"]
+        elif injection_type == "xxe":
+            return ["xxeinjector", "nuclei"]
+        elif injection_type == "ssti":
+            return ["ssti-scanner", "nuclei"]
+        elif injection_type == "all":
+            return ["nosqlmap", "ssrf-sheriff", "xxeinjector", "ssti-scanner", "api-injection-scanner"]
+        return []
+
+    def select_cloud_native_tools(self, platform: str, assessment_type: str = "security") -> List[str]:
+        """Select optimal tools for cloud-native security"""
+        if platform == "kubernetes":
+            if assessment_type == "security":
+                return ["kubescape", "popeye", "rbac-police", "kubesec"]
+            elif assessment_type == "pentest":
+                return ["kube-hunter", "peirates", "deepce", "cdk"]
+        elif platform == "docker":
+            return ["trivy", "docker-escape-scanner", "deepce", "amicontained"]
+        elif platform == "aws":
+            return ["prowler", "scout-suite", "aws-vault", "pacu"]
+        elif platform == "azure":
+            return ["scout-suite", "azure-security-scan"]
+        elif platform == "gcp":
+            return ["gcp-firewall-enum", "scout-suite"]
+        return []
+
+    def select_forensics_tools(self, analysis_type: str, target_type: str = "disk") -> List[str]:
+        """Select optimal tools for digital forensics"""
+        if target_type == "disk":
+            if analysis_type == "imaging":
+                return ["dc3dd", "ftk-imager-cli", "guymager"]
+            elif analysis_type == "timeline":
+                return ["plaso", "autopsy-cli"]
+        elif target_type == "memory":
+            return ["rekall", "volatility3"]
+        elif target_type == "malware":
+            return ["cuckoo-sandbox", "yara", "pestudio", "floss", "hollows-hunter"]
+        elif target_type == "comprehensive":
+            return ["autopsy-cli", "plaso", "rekall", "yara", "strings-extended"]
+        return []
+
+
+# Global decision engine instance
+decision_engine = IntelligentDecisionEngine()
