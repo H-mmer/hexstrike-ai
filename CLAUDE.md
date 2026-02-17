@@ -4,10 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-HexStrike AI is an AI-powered penetration testing MCP (Model Context Protocol) framework that provides 150+ security tools and 12+ autonomous AI agents for cybersecurity automation. It consists of two main components:
+HexStrike AI is an AI-powered penetration testing MCP (Model Context Protocol) framework that provides 105+ security tools and 12+ autonomous AI agents for cybersecurity automation. It features a modular architecture with organized components:
 
-1. **hexstrike_server.py** (17k+ lines) - Flask-based API server with AI agents and tool orchestration
-2. **hexstrike_mcp.py** (5k+ lines) - FastMCP client that exposes security tools to AI agents
+**Main Components:**
+1. **hexstrike_server.py** - Main entry point and Flask API server
+2. **hexstrike_mcp.py** - FastMCP client that exposes security tools to AI agents
+3. **Modular architecture** - agents/, managers/, tools/, core/, utils/ directories (Phase 1-3)
+4. **Installation system** - scripts/installer/ with automated tool installation (Phase 4 - 50% complete)
+
+## Prerequisites
+
+- **Python 3.8+** (required)
+- **Chrome/Chromium browser** (required for BrowserAgent)
+- **External security tools** (150+ tools - see Installation section)
+- **bcrypt 4.0.1** - Pinned version for pwntools compatibility (specified in requirements.txt)
 
 ## Development Commands
 
@@ -45,6 +55,18 @@ python3 hexstrike_mcp.py --debug
 ### Testing and Verification
 
 ```bash
+# Run all unit tests
+pytest
+
+# Run specific test file
+pytest tests/unit/test_visual_engine.py
+
+# Run with verbose output
+pytest -v
+
+# Run with coverage report
+pytest --cov=. --cov-report=html
+
 # Test server health
 curl http://localhost:8888/health
 
@@ -62,39 +84,50 @@ curl http://localhost:8888/api/processes/list
 
 ## Architecture
 
-### Two-Script System
+### Modular Architecture (Phase 1-3 Refactor)
 
-**hexstrike_server.py** - Core server containing:
-- Flask API server (port 8888 by default)
-- AI Decision Engine and workflow managers
-- Process management system
-- Caching layer (LRU cache with TTL)
-- Browser automation (Selenium/Chrome)
-- 150+ security tool integrations
+The codebase has been refactored from monolithic files into a clean modular structure:
 
-**hexstrike_mcp.py** - MCP client containing:
-- FastMCP integration using `@mcp.tool()` decorators
-- Client wrapper for server API calls
-- Colored logging and output formatting
-- Tool definitions exposed to AI agents
+**Core Components (`core/`):**
+- `server.py` - Flask API server and main application logic
+- `constants.py` - Shared constants and configuration values
 
-### Key Components in hexstrike_server.py
+**AI Agents (`agents/`):**
+- `decision_engine.py` - Intelligent tool selection and parameter optimization
+- `bugbounty_manager.py` - Bug bounty workflow automation
+- `ctf_manager.py` - CTF challenge solving workflows
+- `ctf_tools.py` - CTF-specific tool management
+- `cve_intelligence.py` - Vulnerability intelligence and exploit analysis
+- `browser_agent.py` - Headless Chrome automation with Selenium
+- `base.py` - Base classes for agent implementations
 
-**AI Agents & Intelligence** (lines ~100-8000):
-- `ModernVisualEngine` - Real-time dashboards and visual output
-- `IntelligentDecisionEngine` - Tool selection and parameter optimization
-- `BugBountyWorkflowManager` - Bug bounty hunting workflows
-- `CTFWorkflowManager` - CTF challenge solving
-- `CTFToolManager` - CTF-specific tool management
-- `CVEIntelligenceManager` - Vulnerability intelligence and exploit analysis
+**Managers (`managers/`):**
+- `process_manager.py` - Smart process control with real-time monitoring
+- `cache_manager.py` - LRU cache with TTL for expensive operations
+- `file_manager.py` - File operations and artifact handling
 
-**Infrastructure** (lines ~5000-14000):
-- `EnhancedProcessManager` - Smart process control with real-time monitoring
-- `ProcessManager` - Basic process lifecycle management
-- `FileOperationsManager` - File operations and artifact handling
-- `BrowserAgent` - Headless Chrome automation with Selenium
+**Security Tools (`tools/`):**
+- `tools/network/` - Network reconnaissance (nmap, rustscan, masscan, amass, etc.)
+- `tools/web/` - Web application testing (gobuster, nuclei, sqlmap, nikto, etc.)
+- `tools/cloud/` - Cloud security (prowler, trivy, kube-hunter, etc.)
+- `tools/binary/` - Binary analysis (ghidra, radare2, gdb, volatility, etc.)
+- `tools/mobile/` - Mobile security (APK analysis, iOS tools) - Phase 3
+- `tools/api/` - API security (discovery, fuzzing, auth testing) - Phase 3
+- `tools/wireless/` - Wireless security (WiFi, Bluetooth, RF tools) - Phase 3
+- `tools/osint/` - OSINT and intelligence gathering
 
-**API Endpoints** (lines ~14000+):
+**Utilities (`utils/`):**
+- `visual_engine.py` - Real-time dashboards and visual output (ModernVisualEngine)
+- `logger.py` - Enhanced logging with emojis and colors
+
+**MCP Client:**
+- `hexstrike_mcp.py` - FastMCP integration using `@mcp.tool()` decorators, client wrapper for server API calls, tool definitions exposed to AI agents
+
+**Server Entry Point:**
+- `hexstrike_server.py` - Main entry point that imports and orchestrates all components
+
+### Key API Endpoints
+
 - `/health` - Health check with tool availability
 - `/api/command` - Execute arbitrary commands with caching
 - `/api/intelligence/*` - AI intelligence endpoints
@@ -117,6 +150,117 @@ def tool_name(param1: str, param2: Optional[int] = None) -> str:
 ```
 
 All tools follow the pattern: decorator → docstring → API call → response formatting.
+
+### Installation Infrastructure (Phase 4 - In Progress)
+
+**Status:** 50% Complete (11/22 tasks) - Building automated installation system
+**Location:** `scripts/installer/`
+**Goal:** Reduce setup time from 45+ minutes to 3-15 minutes
+
+**Core Modules** (`scripts/installer/core/`):
+- `os_detector.py` (134 lines, 4 tests) - OS detection and repository management
+  - Detects Kali/Parrot Linux from `/etc/os-release`
+  - Verifies supported OS and updates package repositories
+  - Manages apt package installation
+- `tool_manager.py` (237 lines, 5 tests) - Multi-package-manager tool detection and installation
+  - Detects installed tools via `which` and `dpkg`
+  - Installs via apt (primary), pip (fallback), npm (fallback)
+  - Returns detailed installation results with error handling
+- `reporter.py` (152 lines, 2 tests) - Multi-format installation reporting
+  - Rich terminal tables with color-coded status
+  - HTML reports with responsive design (Jinja2 templates)
+  - JSON export for CI/CD integration
+
+**Installation Modes** (`scripts/installer/modes/`):
+- `quick.py` (29 lines, 2 tests) - 20 essential tools for CTF/quick pentests
+- `standard.py` (30 lines, 2 tests) - 36 tools for bug bounty/standard pentests
+- `complete.py` (24 lines, 2 tests) - 54+ tools for comprehensive pentesting
+
+**Category Filters** (`scripts/installer/categories/`):
+- `network.py` (30 lines, 2 tests) - 25 network/reconnaissance tools
+- `web.py` (30 lines, 2 tests) - 30 web application security tools
+- `cloud.py` (30 lines, 2 tests) - 10 cloud security tools
+- `binary.py` (30 lines, 2 tests) - 15 binary analysis/reverse engineering tools
+- `mobile.py` (28 lines, 2 tests) - 8 mobile security tools (Android/iOS)
+- `forensics.py` (30 lines, 2 tests) - 8 forensics and malware analysis tools
+
+**Tool Registry** (`scripts/installer/registry.yaml`):
+- 105 security tools with complete metadata
+- Fields: package name, manager (apt/pip/npm), category, tier, description
+- Organized by tier: Essential (25), Core (64), Specialized (16)
+- Organized by category: Network (25), Web (30), Cloud (10), Binary (15), Mobile (8), Forensics (8)
+
+**Testing** (`tests/unit/test_installer/`):
+- 32 unit tests - 100% passing
+- Test files: `test_os_detector.py`, `test_tool_manager.py`, `test_reporter.py`, `test_modes.py`, `test_categories.py`, `test_registry.py`
+- Coverage: ~80-85% for installer modules
+- Tests use flexible assertions (`>=` for counts) to handle registry growth
+
+**Installer Testing Commands:**
+```bash
+# Run all installer tests
+pytest tests/unit/test_installer/ -v
+
+# Run specific test suites
+pytest tests/unit/test_installer/test_modes.py -v
+pytest tests/unit/test_installer/test_categories.py -v
+pytest tests/unit/test_installer/test_tool_manager.py -v
+
+# Check installer test coverage
+pytest tests/unit/test_installer/ --cov=scripts/installer --cov-report=html
+
+# Run smoke test (verify imports and counts)
+python -c "
+from scripts.installer.modes import quick, standard, complete
+from scripts.installer.categories import network, web, cloud, binary, mobile, forensics
+print(f'Quick: {len(quick.get_quick_tools())} tools')
+print(f'Standard: {len(standard.get_standard_tools())} tools')
+print(f'Complete: {len(complete.get_complete_tools())} tools')
+print(f'Network: {len(network.get_network_tools())} tools')
+print(f'Web: {len(web.get_web_tools())} tools')
+"
+```
+
+**Usage (When Complete - Task 12+):**
+```bash
+# Quick installation (20 essential tools, ~5 minutes)
+python scripts/installer/main.py --mode quick
+
+# Standard installation (36 tools, ~15 minutes)
+python scripts/installer/main.py --mode standard
+
+# Complete installation (54+ tools, ~30 minutes)
+python scripts/installer/main.py --mode complete
+
+# Install specific categories only
+python scripts/installer/main.py --categories network,web
+python scripts/installer/main.py --mode standard --categories cloud,binary
+
+# Dry run (preview what would be installed)
+python scripts/installer/main.py --mode quick --dry-run
+
+# Generate reports
+python scripts/installer/main.py --mode standard --output html  # HTML report
+python scripts/installer/main.py --mode quick --output json    # JSON export
+```
+
+**Implementation Pattern:**
+All modes and categories follow a simple function-based pattern:
+```python
+def get_quick_tools() -> List[str]:
+    """Get list of essential tier tools"""
+    registry_path = Path('scripts/installer/registry.yaml')
+    with open(registry_path) as f:
+        data = yaml.safe_load(f)
+    tools = data.get('tools', {})
+    essential_tools = [
+        name for name, info in tools.items()
+        if info.get('tier') == 'essential'
+    ]
+    return sorted(essential_tools)
+```
+
+This pattern is used for all 3 modes (filter by tier) and all 6 categories (filter by category).
 
 ## Code Organization Principles
 
@@ -179,15 +323,24 @@ All API endpoints return JSON with this structure:
 
 ### External Security Tools
 
-HexStrike integrates with 150+ external tools that must be installed separately. See README.md "Install Security Tools" section for categories:
-- Network & Reconnaissance (25+ tools): nmap, masscan, rustscan, amass, subfinder, nuclei
-- Web Application (40+ tools): gobuster, feroxbuster, ffuf, sqlmap, wpscan, nikto
-- Authentication (12+ tools): hydra, john, hashcat, medusa
-- Binary Analysis (25+ tools): ghidra, radare2, gdb, binwalk, volatility3
-- Cloud Security (20+ tools): prowler, scout-suite, trivy, kube-hunter
-- CTF & Forensics (20+ tools): volatility3, foremost, steghide, exiftool
+**Tool Registry:** 105 security tools in `scripts/installer/registry.yaml`
 
-Tools are invoked via subprocess - the system gracefully handles missing tools.
+**By Tier (Installation Modes):**
+- **Essential** (25 tools) - Quick mode installations, CTF competitions, rapid deployment
+- **Core** (64 tools) - Standard mode installations, bug bounty hunting, balanced pentesting
+- **Specialized** (16 tools) - Complete mode installations, comprehensive security labs
+
+**By Category (Domain-Specific):**
+- **Network/Recon** (25 tools): nmap, rustscan, masscan, amass, subfinder, dnsx, nuclei, httprobe, waybackurls, shodan, censys, etc.
+- **Web Security** (30 tools): gobuster, nuclei, sqlmap, nikto, burpsuite, zaproxy, feroxbuster, ffuf, wpscan, wfuzz, dalfox, etc.
+- **Cloud Security** (10 tools): trivy, scout-suite, prowler, cloudmapper, pacu, kube-hunter, kubescape, kube-bench, etc.
+- **Binary Analysis** (15 tools): gdb, ghidra, radare2, rizin, pwndbg, checksec, binwalk, foremost, objdump, ltrace, strace, etc.
+- **Mobile Security** (8 tools): apktool, jadx, mobsf, frida, androguard, dex2jar, objection, etc.
+- **Forensics/Malware** (8 tools): yara, volatility3, autopsy, sleuthkit, clamav, bulk-extractor, scalpel, testdisk
+
+**Authentication Tools:** Included in Web category (hydra, john, hashcat in registry)
+
+Tools are invoked via subprocess - the system gracefully handles missing tools. Use `scripts/installer/` for automated installation.
 
 ## Configuration
 
@@ -212,6 +365,21 @@ Claude Desktop/Cursor config (`~/.config/Claude/claude_desktop_config.json`):
 ```
 
 ## Important Development Notes
+
+### Files to Ignore (.gitignore)
+
+Add these to your .gitignore:
+```
+hexstrike-env/          # Virtual environment
+__pycache__/            # Python bytecode cache
+*.pyc                   # Compiled Python files
+*.pyo                   # Optimized Python files
+hexstrike.log           # Runtime logs
+.pytest_cache/          # Pytest cache
+*.log                   # All log files
+.coverage               # Coverage reports
+htmlcov/                # Coverage HTML output
+```
 
 ### Security Tool Execution
 
@@ -253,17 +421,56 @@ Long-running tools use `EnhancedProcessManager`:
 
 ### Adding a New Security Tool
 
-1. Add tool function to `hexstrike_server.py` (follow existing pattern)
-2. Add MCP tool decorator in `hexstrike_mcp.py`
-3. Document in README.md tool list
-4. Handle missing tool gracefully (check with `shutil.which()`)
+1. **Add to tool registry** (`scripts/installer/registry.yaml`):
+   ```yaml
+   tool-name:
+     package: package-name
+     manager: apt  # or pip, npm
+     category: network  # or web, cloud, binary, mobile, forensics
+     tier: core  # or essential, specialized
+     description: "Brief description of the tool"
+   ```
+
+2. **Add tool implementation** to appropriate `tools/` subdirectory:
+   - `tools/network/` for network/reconnaissance tools
+   - `tools/web/` for web application testing
+   - `tools/cloud/` for cloud security
+   - `tools/binary/` for binary analysis/forensics
+   - `tools/mobile/` for mobile security
+   - `tools/api/` for API testing
+   - `tools/wireless/` for wireless security
+
+3. **Import in `tools/<category>/__init__.py`**
+
+4. **Add MCP tool decorator** in `hexstrike_mcp.py`
+
+5. **Add unit tests** in `tests/unit/test_<category>_tools.py`
+
+6. **Verify installation** works:
+   ```bash
+   # Test tool detection
+   python -c "
+   from scripts.installer.core.tool_manager import ToolManager
+   from scripts.installer.core.os_detector import OSDetector
+   tm = ToolManager(OSDetector())
+   status = tm.check_installed('tool-name')
+   print(f'Installed: {status.installed}, Path: {status.path}')
+   "
+   ```
+
+7. **Document in README.md** tool list
+
+8. **Handle missing tool gracefully** (check with `shutil.which()`)
 
 ### Adding a New AI Agent
 
-1. Create class inheriting appropriate base (see existing agents)
-2. Implement required methods (analyze, execute, report)
-3. Integrate with `IntelligentDecisionEngine` if needed
-4. Add colored output using `ModernVisualEngine.COLORS`
+1. Create new file in `agents/` directory
+2. Create class inheriting from `agents/base.py` (see existing agents)
+3. Implement required methods (analyze, execute, report)
+4. Import in `agents/__init__.py`
+5. Integrate with `decision_engine.py` if needed
+6. Add colored output using `ModernVisualEngine.COLORS` from `utils/visual_engine.py`
+7. Add unit tests in `tests/unit/`
 
 ### Debugging Issues
 
@@ -272,3 +479,18 @@ Long-running tools use `EnhancedProcessManager`:
 3. Test endpoints individually with curl
 4. Use `/api/processes/list` to monitor running tools
 5. Check `/api/cache/stats` for cache hit/miss ratios
+
+## CLAUDE.md Maintenance
+
+This file should be updated after major changes:
+- After significant refactors, verify architecture section matches actual code structure
+- Use `#` key during Claude Code sessions to auto-incorporate learnings
+- Use `/claude-md-management:claude-md-improver` skill to audit CLAUDE.md quality periodically
+- The project evolved from monolithic (pre-Phase 1) to modular (Phase 1-3) - keep documentation in sync with such changes
+- **Phase 4 (Installation Infrastructure) is actively being developed** - Update installer documentation after major milestones:
+  - Current: 50% complete (11/22 tasks) - Core modules, modes, categories implemented
+  - Next: CLI orchestration (Task 12), bash wrapper (Task 13), Docker (Tasks 16-18)
+  - Update tool counts as registry expands beyond 105 tools
+
+## IMPORTANT INSTRUCTIONS
+- Start all new Phases, Features, and/or Major changes by first understanding the requirements through brainstorming (use skill /brainstorming), then creating a detailed implementation plan (use skill /writing-plans).
