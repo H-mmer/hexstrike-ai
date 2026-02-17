@@ -397,3 +397,367 @@ tools:
 
 # NOTE: This is a subset. Full registry would include all 271 tools
 # organized by phase, category, and tier.
+
+  # Additional Network & Reconnaissance Tools
+  dnsx:
+    package: dnsx
+    manager: apt
+    category: network
+    tier: core
+    description: "Fast DNS toolkit"
+
+  shuffledns:
+    package: shuffledns
+    manager: apt
+    category: network
+    tier: core
+    description: "DNS subdomain discovery"
+
+  httprobe:
+    package: httprobe
+    manager: apt
+    category: network
+    tier: core
+    description: "HTTP probe for domains"
+
+  hakrawler:
+    package: hakrawler
+    manager: apt
+    category: network
+    tier: core
+    description: "Web crawler for endpoints"
+
+  waybackurls:
+    package: waybackurls
+    manager: apt
+    category: network
+    tier: specialized
+    description: "Fetch URLs from Wayback Machine"
+
+  gau:
+    package: gau
+    manager: apt
+    category: network
+    tier: specialized
+    description: "Fetch URLs from various sources"
+
+  unfurl:
+    package: unfurl
+    manager: apt
+    category: network
+    tier: specialized
+    description: "URL parsing and analysis"
+
+  anew:
+    package: anew
+    manager: apt
+    category: network
+    tier: specialized
+    description: "Tool for adding new lines to files"
+
+  assetfinder:
+    package: assetfinder
+    manager: apt
+    category: network
+    tier: specialized
+    description: "Find domains and subdomains"
+
+  findomain:
+    package: findomain
+    manager: apt
+    category: network
+    tier: specialized
+    description: "Subdomain finder"
+
+  shodan:
+    package: shodan
+    manager: pip
+    category: network
+    tier: specialized
+    description: "Shodan search engine CLI"
+
+  censys:
+    package: censys
+    manager: pip
+    category: network
+    tier: specialized
+    description: "Censys search engine"
+
+  dnsrecon:
+    package: dnsrecon
+    manager: apt
+    category: network
+    tier: core
+    description: "DNS reconnaissance tool"
+
+  # Additional Web Application Tools
+  dirb:
+    package: dirb
+    manager: apt
+    category: web
+    tier: core
+    description: "Web content scanner"
+
+  dirbuster:
+    package: dirbuster
+    manager: apt
+    category: web
+    tier: core
+    description: "Directory brute forcing"
+
+  wfuzz:
+    package: wfuzz
+    manager: apt
+    category: web
+    tier: core
+    description: "Web application fuzzer"
+
+  commix:
+    package: commix
+    manager: apt
+    category: web
+    tier: specialized
+    description: "Command injection exploiter"
+
+  xsser:
+    package: xsser
+    manager: apt
+    category: web
+    tier: specialized
+    description: "XSS detection tool"
+
+  sqlninja:
+    package: sqlninja
+    manager: apt
+    category: web
+    tier: specialized
+    description: "SQL Server injection tool"
+
+  w3af:
+    package: w3af
+    manager: apt
+    category: web
+    tier: specialized
+    description: "Web application attack framework"
+
+  burpsuite:
+    package: burpsuite
+    manager: apt
+    category: web
+    tier: essential
+    description: "Web security testing"
+
+  zaproxy:
+    package: zaproxy
+    manager: apt
+    category: web
+    tier: essential
+    description: "OWASP ZAP proxy"
+
+  skipfish:
+    package: skipfish
+    manager: apt
+    category: web
+    tier: specialized
+    description: "Web application scanner"
+
+  arachni:
+    package: arachni
+    manager: apt
+    category: web
+    tier: specialized
+    description: "Web security scanner"
+
+  whatweb:
+    package: whatweb
+    manager: apt
+    category: web
+    tier: core
+    description: "Web technology fingerprinting"
+
+  wafw00f:
+    package: wafw00f
+    manager: apt
+    category: web
+    tier: core
+    description: "WAF detection tool"
+
+  photon:
+    package: photon
+    manager: pip
+    category: web
+    tier: specialized
+    description: "Fast web crawler"
+
+  # Additional Cloud Security Tools
+  prowler:
+    package: prowler
+    manager: pip
+    category: cloud
+    tier: essential
+    description: "AWS security assessment"
+
+  cloudmapper:
+    package: cloudmapper
+    manager: pip
+    category: cloud
+    tier: core
+    description: "AWS environment analyzer"
+
+  pacu:
+    package: pacu
+    manager: pip
+    category: cloud
+    tier: core
+    description: "AWS exploitation framework"
+
+  cloudfox:
+    package: cloudfox
+    manager: apt
+    category: cloud
+    tier: specialized
+    description: "AWS security toolbox"
+
+  cloudbrute:
+    package: cloudbrute
+    manager: apt
+    category: cloud
+    tier: specialized
+    description: "Cloud bucket finder"
+
+  s3scanner:
+    package: s3scanner
+    manager: pip
+    category: cloud
+    tier: core
+    description: "S3 bucket scanner"
+
+  kube-bench:
+    package: kube-bench
+    manager: apt
+    category: cloud-enhanced
+    tier: core
+    description: "Kubernetes security checker"
+
+  # Additional Binary Analysis Tools
+  objdump:
+    package: binutils
+    manager: apt
+    category: binary
+    tier: essential
+    description: "Display object file information"
+
+  ltrace:
+    package: ltrace
+    manager: apt
+    category: binary
+    tier: core
+    description: "Library call tracer"
+
+  strace:
+    package: strace
+    manager: apt
+    category: binary
+    tier: core
+    description: "System call tracer"
+
+  binwalk:
+    package: binwalk
+    manager: apt
+    category: binary
+    tier: core
+    description: "Firmware analysis tool"
+
+  foremost:
+    package: foremost
+    manager: apt
+    category: binary
+    tier: core
+    description: "File carving tool"
+
+  hexedit:
+    package: hexedit
+    manager: apt
+    category: binary
+    tier: specialized
+    description: "Hex editor"
+
+  hopper:
+    package: hopper
+    manager: apt
+    category: binary-enhanced
+    tier: specialized
+    description: "Reverse engineering tool"
+
+  # Additional Mobile Security Tools
+  androguard:
+    package: androguard
+    manager: pip
+    category: mobile
+    tier: core
+    description: "Android app analysis"
+
+  apkx:
+    package: apkx
+    manager: pip
+    category: mobile
+    tier: specialized
+    description: "APK decompiler wrapper"
+
+  dex2jar:
+    package: dex2jar
+    manager: apt
+    category: mobile
+    tier: core
+    description: "DEX to JAR converter"
+
+  objection:
+    package: objection
+    manager: pip
+    category: mobile
+    tier: specialized
+    description: "Runtime mobile exploration"
+
+  # Additional Forensics & Malware Tools
+  sleuthkit:
+    package: sleuthkit
+    manager: apt
+    category: forensics
+    tier: core
+    description: "Forensic toolkit"
+
+  bulk-extractor:
+    package: bulk-extractor
+    manager: apt
+    category: forensics
+    tier: specialized
+    description: "Feature extraction tool"
+
+  scalpel:
+    package: scalpel
+    manager: apt
+    category: forensics
+    tier: specialized
+    description: "File carver"
+
+  testdisk:
+    package: testdisk
+    manager: apt
+    category: forensics
+    tier: core
+    description: "Data recovery tool"
+
+  clamav:
+    package: clamav
+    manager: apt
+    category: malware
+    tier: essential
+    description: "Antivirus engine"
+
+  # One more network tool
+  netdiscover:
+    package: netdiscover
+    manager: apt
+    category: network
+    tier: core
+    description: "Network address scanner"
