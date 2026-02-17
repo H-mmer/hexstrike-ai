@@ -16,6 +16,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from scripts.installer.core.os_detector import OSDetector, UnsupportedOSError
 from scripts.installer.core.tool_manager import ToolManager
 from scripts.installer.core.reporter import Reporter
+from scripts.installer.core.dependency_checker import DependencyChecker, DependencyError
 
 # Import modes
 from scripts.installer.modes.quick import get_quick_tools
@@ -86,7 +87,12 @@ def validate_categories(categories: str) -> None:
     default='cli',
     help='Output format for installation report'
 )
-def main(mode: str, categories: str, dry_run: bool, output: str) -> None:
+@click.option(
+    '--skip-checks',
+    is_flag=True,
+    help='Skip dependency checks (for advanced users)'
+)
+def main(mode: str, categories: str, dry_run: bool, output: str, skip_checks: bool) -> None:
     """HexStrike AI Installer - Automated Security Tool Installation
 
     Install 105+ security tools for penetration testing, bug bounty hunting,
@@ -113,6 +119,27 @@ def main(mode: str, categories: str, dry_run: bool, output: str) -> None:
         # Print banner
         console.print("\n[bold red]🛡️  HexStrike AI Installer v7.0[/bold red]")
         console.print("[dim]Automated Security Tool Installation[/dim]\n")
+
+        # Step 0: Pre-flight dependency checks (unless skipped)
+        if not skip_checks:
+            console.print("[bold cyan]0. Checking dependencies...[/bold cyan]")
+            dependency_checker = DependencyChecker()
+            results = dependency_checker.check_all(raise_on_failure=False)
+
+            # Display check results
+            all_passed = True
+            for result in results.values():
+                status = "✓" if result.passed else "✗"
+                color = "green" if result.passed else "yellow"
+                console.print(f"   [{color}]{status}[/{color}] {result.name}: {result.message}")
+                if not result.passed:
+                    all_passed = False
+
+            if not all_passed:
+                console.print("\n[yellow]⚠ Some dependency checks failed. Installation may not work correctly.[/yellow]")
+                console.print("[dim]Use --skip-checks to bypass these checks (not recommended)[/dim]\n")
+
+            console.print()
 
         # Step 1: Detect and verify OS
         console.print("[bold cyan]1. Detecting operating system...[/bold cyan]")
@@ -235,6 +262,13 @@ def main(mode: str, categories: str, dry_run: bool, output: str) -> None:
             console.print(f"[dim]Dry run completed - {len(missing)} tools would be installed[/dim]\n")
         else:
             console.print(f"[dim]Installed {len(results['installed'])} tools successfully[/dim]\n")
+
+    except DependencyError as e:
+        console.print(f"\n[bold red]❌ Dependency Error:[/bold red]")
+        console.print(f"[red]{e}[/red]")
+        console.print("\n[dim]Please resolve dependency issues before installing.[/dim]")
+        console.print("[dim]Use --skip-checks to bypass (not recommended)[/dim]\n")
+        sys.exit(1)
 
     except UnsupportedOSError as e:
         console.print(f"\n[bold red]❌ Error:[/bold red] {e}")
