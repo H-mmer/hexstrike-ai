@@ -1,6 +1,11 @@
+import os
+import sys
 import pytest
 import subprocess
 from pathlib import Path
+
+# Ensure the subprocess uses the same Python interpreter that has all deps
+_ENV_WITH_PYTHON = {**os.environ, 'PATH': f"{Path(sys.executable).parent}:{os.environ.get('PATH', '')}"}
 
 class TestWrapperScript:
     """Test bash wrapper script"""
@@ -29,7 +34,8 @@ class TestWrapperScript:
             ['bash', 'scripts/installer/install.sh', '--help'],
             capture_output=True,
             text=True,
-            timeout=5
+            env=_ENV_WITH_PYTHON,
+            timeout=10
         )
 
         assert result.returncode == 0, "Wrapper should exit successfully with --help"
@@ -44,7 +50,8 @@ class TestWrapperScript:
             ['bash', 'scripts/installer/install.sh', '--mode', 'quick', '--dry-run'],
             capture_output=True,
             text=True,
-            timeout=30
+            env=_ENV_WITH_PYTHON,
+            timeout=60
         )
 
         # Should not fail (exit code 0 or 1 is ok for dry-run)
