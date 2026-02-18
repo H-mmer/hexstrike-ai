@@ -20,3 +20,28 @@ def test_get_client_raises_before_init():
         assert False, "Should have raised RuntimeError"
     except RuntimeError:
         pass
+
+
+def test_system_tools_importable():
+    """system.py should import without error and register MCP tools."""
+    from unittest.mock import MagicMock
+    import hexstrike_mcp_tools
+    hexstrike_mcp_tools.initialize(MagicMock())
+    import hexstrike_mcp_tools.system  # triggers @mcp.tool() registrations
+    assert True  # If we get here, import succeeded
+
+
+def test_execute_command_calls_api():
+    from unittest.mock import MagicMock
+    import hexstrike_mcp_tools
+    import hexstrike_mcp_tools.system as sys_mod
+
+    mock_client = MagicMock()
+    mock_client.safe_post.return_value = {"success": True, "output": "hello"}
+    hexstrike_mcp_tools.initialize(mock_client)
+
+    # Call the underlying function (not via MCP protocol, just directly)
+    result = sys_mod.execute_command.__wrapped__("echo hello") if hasattr(sys_mod.execute_command, '__wrapped__') else sys_mod.execute_command("echo hello")
+    mock_client.safe_post.assert_called_once()
+    call_args = mock_client.safe_post.call_args
+    assert call_args[0][0] == "api/command"
