@@ -1,13 +1,8 @@
 # hexstrike_mcp_tools/__init__.py
 """HexStrike MCP tool registration modules."""
+from mcp.server.fastmcp import FastMCP
 
-try:
-    from mcp.server.fastmcp import FastMCP
-    mcp = FastMCP("hexstrike-ai-mcp")
-except (ImportError, ModuleNotFoundError):
-    # mcp.server not available (e.g., local mcp/ directory shadows the package)
-    # mcp instance will be None; tool registrations will handle this gracefully
-    mcp = None
+mcp = FastMCP("hexstrike-ai-mcp")
 
 _client = None
 
