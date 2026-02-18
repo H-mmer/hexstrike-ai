@@ -21,6 +21,21 @@ def test_health_route_exists():
     data = resp.get_json()
     assert 'status' in data
 
+def test_health_route_missing_tools():
+    app = Flask(__name__)
+    app.register_blueprint(system_bp)
+    app.config['TESTING'] = True
+    client = app.test_client()
+    with patch('core.routes.system.shutil') as mock_shutil:
+        mock_shutil.which.return_value = None  # All tools missing
+        resp = client.get('/health')
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert 'status' in data
+    # When tools are missing, all_essential_tools_available should be False
+    assert data.get('all_essential_tools_available') is False or data.get('tools_available', 1) == 0
+
+
 def test_telemetry_route_exists():
     app = Flask(__name__)
     app.register_blueprint(system_bp)

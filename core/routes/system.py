@@ -87,9 +87,14 @@ def health_check():
         password_tools + binary_tools + forensics_tools + cloud_tools +
         osint_tools + exploitation_tools + api_tools + wireless_tools + additional_tools
     )
+
+    # Deduplicate while preserving order
+    seen = set()
+    all_tools_deduped = [t for t in all_tools if not (t in seen or seen.add(t))]
+
     tools_status = {}
 
-    for tool in all_tools:
+    for tool in all_tools_deduped:
         try:
             tools_status[tool] = _check_tool(tool)
         except Exception:
@@ -120,7 +125,7 @@ def health_check():
         "tools_status": tools_status,
         "all_essential_tools_available": all_essential_tools_available,
         "total_tools_available": sum(1 for tool, available in tools_status.items() if available),
-        "total_tools_count": len(all_tools),
+        "total_tools_count": len(all_tools_deduped),
         "category_stats": category_stats,
         "cache_stats": {},
         "telemetry": {},
