@@ -10,7 +10,7 @@ HexStrike AI is an AI-powered penetration testing MCP (Model Context Protocol) f
 1. **hexstrike_server.py** - Main entry point and Flask API server
 2. **hexstrike_mcp.py** - FastMCP client that exposes security tools to AI agents
 3. **Modular architecture** - agents/, managers/, tools/, core/, utils/ directories (Phase 1-3)
-4. **Installation system** - scripts/installer/ with automated tool installation (Phase 4 - 86% complete, 19/22 tasks)
+4. **Installation system** - scripts/installer/ with automated tool installation (Phase 4 - COMPLETE, 22/22 tasks)
 
 ## Prerequisites
 
@@ -151,9 +151,9 @@ def tool_name(param1: str, param2: Optional[int] = None) -> str:
 
 All tools follow the pattern: decorator → docstring → API call → response formatting.
 
-### Installation Infrastructure (Phase 4 - In Progress)
+### Installation Infrastructure (Phase 4 - COMPLETE)
 
-**Status:** 86% Complete (19/22 tasks) - ONE TASK REMAINING: Task 22 (Final Documentation)
+**Status:** 100% Complete (22/22 tasks)
 **Location:** `scripts/installer/`
 **Goal:** Reduce setup time from 45+ minutes to 3-15 minutes
 
@@ -509,8 +509,10 @@ This file should be updated after major changes:
 - Use `#` key during Claude Code sessions to auto-incorporate learnings
 - Use `/claude-md-management:claude-md-improver` skill to audit CLAUDE.md quality periodically
 - The project evolved from monolithic (pre-Phase 1) to modular (Phase 1-3) - keep documentation in sync with such changes
-- **Phase 4 (Installation Infrastructure) is 86% complete (19/22 tasks)** - Remaining: Task 22 (Final Documentation)
-  - Completed: Core modules, modes, categories, CLI (Task 12), bash wrapper (Task 13), dependency checker (Task 14), pre-flight (Task 15), Dockerfile (Task 16), docker-compose (Task 17), DOCKER.md (Task 18), E2E integration tests (Task 19), mode hierarchy tests (Task 20), category tests (Task 21)
+- **Phase 4 (Installation Infrastructure) is 100% complete (22/22 tasks)**
+  - Completed: Core modules, modes, categories, CLI (Task 12), bash wrapper (Task 13), dependency checker (Task 14), pre-flight (Task 15), Dockerfile (Task 16), docker-compose (Task 17), DOCKER.md (Task 18), E2E integration tests (Task 19), mode hierarchy tests (Task 20), category tests (Task 21), final documentation (Task 22)
+  - See docs/installation.md for the user-facing installation guide
+  - See CHANGELOG.md for Phase 4 release notes
   - Update tool counts as registry expands beyond 105 tools
 
 ## IMPORTANT INSTRUCTIONS
