@@ -73,6 +73,11 @@ class HexStrikeCache:
         self.cache[key] = (time.time(), result)
         logger.info(f"💾 Cached result for command: {command}")
 
+    def clear(self) -> None:
+        """Clear all cache entries and reset statistics."""
+        self.cache.clear()
+        self.stats = {"hits": 0, "misses": 0, "evictions": 0}
+
     def get_stats(self) -> Dict[str, Any]:
         """Get cache statistics"""
         total_requests = self.stats["hits"] + self.stats["misses"]

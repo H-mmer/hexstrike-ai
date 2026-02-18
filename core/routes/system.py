@@ -1,4 +1,5 @@
 """System and infrastructure routes Blueprint."""
+import shlex
 import shutil
 import subprocess
 import time
@@ -163,8 +164,7 @@ def cache_stats():
 @system_bp.route("/api/cache/clear", methods=["POST"])
 def cache_clear():
     """Clear all entries from the LRU cache"""
-    _cache.cache.clear()
-    _cache.stats = {"hits": 0, "misses": 0, "evictions": 0}
+    _cache.clear()
     return jsonify({"success": True})
 
 
@@ -189,12 +189,12 @@ def run_command():
         return jsonify({"success": False, "error": "No command provided"}), 400
 
     try:
+        cmd_list = shlex.split(command)
         result = subprocess.run(
-            command,
-            shell=True,
+            cmd_list,
             capture_output=True,
             text=True,
-            timeout=120,
+            timeout=30,
         )
         return jsonify({
             "success": result.returncode == 0,

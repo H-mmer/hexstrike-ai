@@ -11,6 +11,14 @@ def client():
     return app.test_client()
 
 
+@pytest.fixture(autouse=True)
+def clear_cache():
+    """Reset cache state before each test."""
+    from core.routes.system import _cache
+    _cache.clear()
+    yield
+
+
 # ---------------------------------------------------------------------------
 # Cache routes
 # ---------------------------------------------------------------------------
@@ -69,11 +77,10 @@ def test_process_list_returns_dict(client):
 # ---------------------------------------------------------------------------
 
 def test_command_route_echo(client):
-    with patch('core.routes.system.subprocess') as mock_sub:
-        mock_sub.run.return_value = MagicMock(
+    with patch('core.routes.system.subprocess.run') as mock_run:
+        mock_run.return_value = MagicMock(
             stdout='test output', stderr='', returncode=0
         )
-        mock_sub.TimeoutExpired = TimeoutError  # prevent bare except issues
         resp = client.post('/api/command', json={'command': 'echo test'})
     assert resp.status_code == 200
     data = resp.get_json()
