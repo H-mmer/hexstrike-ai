@@ -4,7 +4,7 @@
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/0x4m4/hexstrike-ai.git
+git clone https://github.com/H-mmer/hexstrike-ai.git
 cd hexstrike-ai
 
 # 2. Set up Python environment

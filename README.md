@@ -7,14 +7,14 @@
 
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Security](https://img.shields.io/badge/Security-Penetration%20Testing-red.svg)](https://github.com/0x4m4/hexstrike-ai)
-[![MCP](https://img.shields.io/badge/MCP-Compatible-purple.svg)](https://github.com/0x4m4/hexstrike-ai)
-[![Version](https://img.shields.io/badge/Version-6.0.0-orange.svg)](https://github.com/0x4m4/hexstrike-ai/releases)
-[![Tools](https://img.shields.io/badge/Security%20Tools-150%2B-brightgreen.svg)](https://github.com/0x4m4/hexstrike-ai)
-[![Agents](https://img.shields.io/badge/AI%20Agents-12%2B-purple.svg)](https://github.com/0x4m4/hexstrike-ai)
-[![Stars](https://img.shields.io/github/stars/0x4m4/hexstrike-ai?style=social)](https://github.com/0x4m4/hexstrike-ai)
+[![Security](https://img.shields.io/badge/Security-Penetration%20Testing-red.svg)](https://github.com/H-mmer/hexstrike-ai)
+[![MCP](https://img.shields.io/badge/MCP-Compatible-purple.svg)](https://github.com/H-mmer/hexstrike-ai)
+[![Version](https://img.shields.io/badge/Version-6.0.0-orange.svg)](https://github.com/H-mmer/hexstrike-ai/releases)
+[![Tools](https://img.shields.io/badge/Security%20Tools-105%2B-brightgreen.svg)](https://github.com/H-mmer/hexstrike-ai)
+[![Agents](https://img.shields.io/badge/AI%20Agents-12%2B-purple.svg)](https://github.com/H-mmer/hexstrike-ai)
+[![Stars](https://img.shields.io/github/stars/H-mmer/hexstrike-ai?style=social)](https://github.com/H-mmer/hexstrike-ai)
 
-**Advanced AI-powered penetration testing MCP framework with 150+ security tools and 12+ autonomous AI agents**
+**Advanced AI-powered penetration testing MCP framework with 105+ security tools and 12+ autonomous AI agents**
 
 [📋 What's New](#whats-new-in-v60) • [🏗️ Architecture](#architecture-overview) • [🚀 Installation](#installation) • [🛠️ Features](#features) • [🤖 AI Agents](#ai-agents) • [📡 API Reference](#api-reference)
 
@@ -78,7 +78,7 @@ graph TD
     E --> N[Progress Visualization]
     E --> O[Vulnerability Cards]
     
-    B --> P[150+ Security Tools]
+    B --> P[105+ Security Tools]
     P --> Q[Network Tools - 25+]
     P --> R[Web App Tools - 40+]
     P --> S[Cloud Tools - 20+]
@@ -114,7 +114,7 @@ graph TD
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/0x4m4/hexstrike-ai.git
+git clone https://github.com/H-mmer/hexstrike-ai.git
 cd hexstrike-ai
 
 # 2. Create virtual environment
@@ -298,7 +298,7 @@ Configure VS Code settings in `.vscode/settings.json`:
 
 ### Security Tools Arsenal
 
-**150+ Professional Security Tools:**
+**105+ Professional Security Tools:**
 
 <details>
 <summary><b>🔍 Network Reconnaissance & Scanning (25+ Tools)</b></summary>
@@ -706,7 +706,7 @@ We welcome contributions from the cybersecurity and AI community!
 
 ```bash
 # 1. Fork and clone the repository
-git clone https://github.com/0x4m4/hexstrike-ai.git
+git clone https://github.com/H-mmer/hexstrike-ai.git
 cd hexstrike-ai
 
 # 2. Create development environment
@@ -770,11 +770,11 @@ MIT License - see LICENSE file for details.
 
 ## 🌟 **Star History**
 
-[![Star History Chart](https://api.star-history.com/svg?repos=0x4m4/hexstrike-ai&type=Date)](https://star-history.com/#0x4m4/hexstrike-ai&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=H-mmer/hexstrike-ai&type=Date)](https://star-history.com/#H-mmer/hexstrike-ai&Date)
 
 ### **📊 Project Statistics**
 
-- **150+ Security Tools** - Comprehensive security testing arsenal
+- **105+ Security Tools** - Comprehensive security testing arsenal
 - **12+ AI Agents** - Autonomous decision-making and workflow management
 - **4000+ Vulnerability Templates** - Nuclei integration with extensive coverage
 - **35+ Attack Categories** - From web apps to cloud infrastructure
@@ -783,7 +783,7 @@ MIT License - see LICENSE file for details.
 
 ### **🚀 Ready to Transform Your AI Agents?**
 
-**[⭐ Star this repository](https://github.com/0x4m4/hexstrike-ai)** • **[🍴 Fork and contribute](https://github.com/0x4m4/hexstrike-ai/fork)** • **[📖 Read the docs](docs/)**
+**[⭐ Star this repository](https://github.com/H-mmer/hexstrike-ai)** • **[🍴 Fork and contribute](https://github.com/H-mmer/hexstrike-ai/fork)** • **[📖 Read the docs](docs/)**
 
 ---
 
