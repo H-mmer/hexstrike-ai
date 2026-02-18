@@ -10,7 +10,7 @@ HexStrike AI is an AI-powered penetration testing MCP (Model Context Protocol) f
 1. **hexstrike_server.py** - Main entry point and Flask API server
 2. **hexstrike_mcp.py** - FastMCP client that exposes security tools to AI agents
 3. **Modular architecture** - agents/, managers/, tools/, core/, utils/ directories (Phase 1-3)
-4. **Installation system** - scripts/installer/ with automated tool installation (Phase 4 - 50% complete)
+4. **Installation system** - scripts/installer/ with automated tool installation (Phase 4 - 86% complete, 19/22 tasks)
 
 ## Prerequisites
 
@@ -153,7 +153,7 @@ All tools follow the pattern: decorator → docstring → API call → response 
 
 ### Installation Infrastructure (Phase 4 - In Progress)
 
-**Status:** 50% Complete (11/22 tasks) - Building automated installation system
+**Status:** 86% Complete (19/22 tasks) - ONE TASK REMAINING: Task 22 (Final Documentation)
 **Location:** `scripts/installer/`
 **Goal:** Reduce setup time from 45+ minutes to 3-15 minutes
 
@@ -190,16 +190,31 @@ All tools follow the pattern: decorator → docstring → API call → response 
 - Organized by tier: Essential (25), Core (64), Specialized (16)
 - Organized by category: Network (25), Web (30), Cloud (10), Binary (15), Mobile (8), Forensics (8)
 
-**Testing** (`tests/unit/test_installer/`):
-- 32 unit tests - 100% passing
-- Test files: `test_os_detector.py`, `test_tool_manager.py`, `test_reporter.py`, `test_modes.py`, `test_categories.py`, `test_registry.py`
-- Coverage: ~80-85% for installer modules
+**Docker Infrastructure** (`scripts/installer/docker/`):
+- `Dockerfile` - 5-stage multi-stage build (base, installer, quick-mode, standard-mode, complete-mode)
+- `docker-compose.yml` - Orchestration with HexStrike server + PostgreSQL
+- `DOCKER.md` - Full Docker usage documentation
+
+**Testing** (`tests/`):
+- **Unit tests** (`tests/unit/test_installer/`): 85 tests - 100% passing
+  - `test_os_detector.py`, `test_tool_manager.py`, `test_reporter.py`, `test_modes.py`, `test_categories.py`, `test_registry.py`, `test_main_cli.py`, `test_wrapper.py`, `test_dependency_checker.py`, `test_preflight.py`, `test_dockerfile.py`, `test_docker_compose.py`, `test_docker_files.py`
+- **Integration tests** (`tests/integration/`): 25 tests - in-process approach (no subprocess scanning)
+  - `test_full_workflow.py` (6 tests) - subprocess CLI verification
+  - `test_modes_integration.py` (9 tests) - mode hierarchy in-process
+  - `test_categories_integration.py` (10 tests) - category filtering in-process
+- **Total: 110 tests passing**
 - Tests use flexible assertions (`>=` for counts) to handle registry growth
 
 **Installer Testing Commands:**
 ```bash
-# Run all installer tests
-pytest tests/unit/test_installer/ -v
+# Run ALL tests (unit + integration)
+pytest -v
+
+# Run only unit tests (fast, ~22s)
+pytest tests/unit/ -v
+
+# Run only integration tests (~73s, safe - no subprocess scanning)
+pytest tests/integration/ -v
 
 # Run specific test suites
 pytest tests/unit/test_installer/test_modes.py -v
@@ -210,7 +225,7 @@ pytest tests/unit/test_installer/test_tool_manager.py -v
 pytest tests/unit/test_installer/ --cov=scripts/installer --cov-report=html
 
 # Run smoke test (verify imports and counts)
-python -c "
+python3 -c "
 from scripts.installer.modes import quick, standard, complete
 from scripts.installer.categories import network, web, cloud, binary, mobile, forensics
 print(f'Quick: {len(quick.get_quick_tools())} tools')
@@ -221,27 +236,34 @@ print(f'Web: {len(web.get_web_tools())} tools')
 "
 ```
 
-**Usage (When Complete - Task 12+):**
+**CRITICAL - Subprocess Safety:**
+NEVER run the full installer CLI (main.py) in integration tests with `subprocess` + `--mode complete`.
+`scan_tools()` calls `check_installed()` for each of 105 tools sequentially. While each call is now safe
+(version detection removed), avoid spawning the full CLI in subprocess from integration tests.
+Use in-process imports for mode/category logic tests (see `tests/integration/test_modes_integration.py`).
+Reserve subprocess only for CLI interface verification (`tests/integration/test_full_workflow.py`).
+
+**Installer Usage:**
 ```bash
 # Quick installation (20 essential tools, ~5 minutes)
-python scripts/installer/main.py --mode quick
+python3 -m scripts.installer.main --mode quick
 
 # Standard installation (36 tools, ~15 minutes)
-python scripts/installer/main.py --mode standard
+python3 -m scripts.installer.main --mode standard
 
 # Complete installation (54+ tools, ~30 minutes)
-python scripts/installer/main.py --mode complete
+python3 -m scripts.installer.main --mode complete
 
 # Install specific categories only
-python scripts/installer/main.py --categories network,web
-python scripts/installer/main.py --mode standard --categories cloud,binary
+python3 -m scripts.installer.main --categories network,web
+python3 -m scripts.installer.main --mode standard --categories cloud,binary
 
 # Dry run (preview what would be installed)
-python scripts/installer/main.py --mode quick --dry-run
+python3 -m scripts.installer.main --mode quick --dry-run
 
 # Generate reports
-python scripts/installer/main.py --mode standard --output html  # HTML report
-python scripts/installer/main.py --mode quick --output json    # JSON export
+python3 -m scripts.installer.main --mode standard --output html  # HTML report
+python3 -m scripts.installer.main --mode quick --output json    # JSON export
 ```
 
 **Implementation Pattern:**
@@ -487,9 +509,8 @@ This file should be updated after major changes:
 - Use `#` key during Claude Code sessions to auto-incorporate learnings
 - Use `/claude-md-management:claude-md-improver` skill to audit CLAUDE.md quality periodically
 - The project evolved from monolithic (pre-Phase 1) to modular (Phase 1-3) - keep documentation in sync with such changes
-- **Phase 4 (Installation Infrastructure) is actively being developed** - Update installer documentation after major milestones:
-  - Current: 50% complete (11/22 tasks) - Core modules, modes, categories implemented
-  - Next: CLI orchestration (Task 12), bash wrapper (Task 13), Docker (Tasks 16-18)
+- **Phase 4 (Installation Infrastructure) is 86% complete (19/22 tasks)** - Remaining: Task 22 (Final Documentation)
+  - Completed: Core modules, modes, categories, CLI (Task 12), bash wrapper (Task 13), dependency checker (Task 14), pre-flight (Task 15), Dockerfile (Task 16), docker-compose (Task 17), DOCKER.md (Task 18), E2E integration tests (Task 19), mode hierarchy tests (Task 20), category tests (Task 21)
   - Update tool counts as registry expands beyond 105 tools
 
 ## IMPORTANT INSTRUCTIONS

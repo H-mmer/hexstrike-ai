@@ -54,8 +54,9 @@ class ToolManager:
         # Method 1: Check with 'which'
         path = shutil.which(tool_name)
         if path:
-            version = self._get_version(tool_name)
-            return InstallStatus(installed=True, path=path, version=version)
+            # Do NOT call _get_version() here — GUI tools like Ghidra open their
+            # interface instead of printing a version string, crashing test runs.
+            return InstallStatus(installed=True, path=path, version=None)
 
         # Method 2: Check package manager
         package_name = self.get_package_name(tool_name)
