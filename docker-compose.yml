@@ -1,0 +1,92 @@
+# HexStrike AI - Docker Compose Configuration
+# Orchestrates multiple HexStrike AI containers with different tool sets
+#
+# Usage:
+#   docker-compose up hexstrike-quick      # Start quick mode (25 tools)
+#   docker-compose up hexstrike-standard   # Start standard mode (43 tools)
+#   docker-compose up hexstrike-complete   # Start complete mode (105 tools)
+#   docker-compose up                      # Start all services
+
+version: '3.8'
+
+services:
+  # ===========================================================================
+  # Quick Mode - Essential tools only (25 tools, ~5 minutes build)
+  # ===========================================================================
+  hexstrike-quick:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: quick-mode
+    image: hexstrike:quick
+    container_name: hexstrike-quick
+    ports:
+      - "8888:8888"
+    environment:
+      - HEXSTRIKE_MODE=quick
+      - HEXSTRIKE_PORT=8888
+    volumes:
+      - ./artifacts:/opt/hexstrike-ai/artifacts
+      - ./logs:/opt/hexstrike-ai/logs
+    restart: unless-stopped
+    networks:
+      - hexstrike-network
+
+  # ===========================================================================
+  # Standard Mode - Essential + Core tools (43 tools, ~15 minutes build)
+  # ===========================================================================
+  hexstrike-standard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: standard-mode
+    image: hexstrike:standard
+    container_name: hexstrike-standard
+    ports:
+      - "8889:8888"
+    environment:
+      - HEXSTRIKE_MODE=standard
+      - HEXSTRIKE_PORT=8888
+    volumes:
+      - ./artifacts:/opt/hexstrike-ai/artifacts
+      - ./logs:/opt/hexstrike-ai/logs
+    restart: unless-stopped
+    networks:
+      - hexstrike-network
+
+  # ===========================================================================
+  # Complete Mode - All tools (105 tools, ~30 minutes build)
+  # ===========================================================================
+  hexstrike-complete:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: complete-mode
+    image: hexstrike:complete
+    container_name: hexstrike-complete
+    ports:
+      - "8890:8888"
+    environment:
+      - HEXSTRIKE_MODE=complete
+      - HEXSTRIKE_PORT=8888
+    volumes:
+      - ./artifacts:/opt/hexstrike-ai/artifacts
+      - ./logs:/opt/hexstrike-ai/logs
+    restart: unless-stopped
+    networks:
+      - hexstrike-network
+
+# ===========================================================================
+# Networks
+# ===========================================================================
+networks:
+  hexstrike-network:
+    driver: bridge
+    name: hexstrike-network
+
+# ===========================================================================
+# Volumes (optional - for persistent data)
+# ===========================================================================
+volumes:
+  hexstrike-data:
+    name: hexstrike-data
