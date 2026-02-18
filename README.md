@@ -148,7 +148,44 @@ Refer to the video above for step-by-step instructions and integration examples 
 
 
 
-### Install Security Tools
+### Install Security Tools (Automated Installer — v7.0+)
+
+HexStrike AI v7.0 includes an automated installer that sets up 105+ security tools with a single command:
+
+```bash
+# Quick mode — 25 essential tools (~5 minutes)
+bash scripts/installer/install.sh --mode quick
+
+# Standard mode — 64 tools (~15 minutes)
+bash scripts/installer/install.sh --mode standard
+
+# Complete mode — 105 tools (~30 minutes)
+bash scripts/installer/install.sh --mode complete
+
+# Preview without installing
+bash scripts/installer/install.sh --mode quick --dry-run
+
+# Install specific categories
+bash scripts/installer/install.sh --categories network,web
+```
+
+**Installer modes:**
+
+| Mode | Tools | Time | Best For |
+|------|-------|------|----------|
+| `quick` | 25 (essential) | ~5 min | CTF, rapid testing |
+| `standard` | 64 (essential + core) | ~15 min | Bug bounty, standard pentests |
+| `complete` | 105 (all) | ~30 min | Comprehensive security labs |
+
+**Categories:** `network` (25) · `web` (30) · `cloud` (10) · `binary` (15) · `mobile` (8) · `forensics` (8)
+
+See [docs/installation.md](docs/installation.md) for the full installation guide.
+
+---
+
+### Manual Tool Installation (Alternative)
+
+If you prefer manual installation or are on a non-Kali/Parrot system:
 
 **Core Tools (Essential):**
 ```bash
