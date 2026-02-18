@@ -78,8 +78,8 @@ def health_check():
 
     additional_tools = [
         "smbmap", "volatility", "sleuthkit", "autopsy", "evil-winrm",
-        "paramspider", "airmon-ng", "airodump-ng", "aireplay-ng", "aircrack-ng",
-        "msfvenom", "msfconsole", "graphql-scanner", "jwt-analyzer"
+        "airmon-ng", "airodump-ng", "aireplay-ng", "aircrack-ng",
+        "msfvenom", "msfconsole"
     ]
 
     all_tools = (

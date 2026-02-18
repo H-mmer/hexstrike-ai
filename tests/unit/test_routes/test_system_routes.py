@@ -33,7 +33,7 @@ def test_health_route_missing_tools():
     data = resp.get_json()
     assert 'status' in data
     # When tools are missing, all_essential_tools_available should be False
-    assert data.get('all_essential_tools_available') is False or data.get('tools_available', 1) == 0
+    assert data.get('all_essential_tools_available') is False
 
 
 def test_telemetry_route_exists():
