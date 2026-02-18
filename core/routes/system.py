@@ -5,15 +5,12 @@ import subprocess
 import time
 import threading
 from flask import Blueprint, jsonify, request
-from managers.cache_manager import HexStrikeCache
+from managers.cache_manager import cache as _cache
 
 system_bp = Blueprint('system', __name__)
 
 # Module-level start time for uptime calculation
 _start_time = time.time()
-
-# Module-level singletons
-_cache = HexStrikeCache()
 
 # Lightweight active-process registry (pid -> info dict)
 _active_processes: dict = {}

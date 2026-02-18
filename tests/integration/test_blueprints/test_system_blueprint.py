@@ -14,8 +14,8 @@ def client():
 @pytest.fixture(autouse=True)
 def clear_cache():
     """Reset cache state before each test."""
-    from core.routes.system import _cache
-    _cache.clear()
+    from managers.cache_manager import cache
+    cache.clear()
     yield
 
 
