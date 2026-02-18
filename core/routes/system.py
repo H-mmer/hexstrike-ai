@@ -1,12 +1,22 @@
 """System and infrastructure routes Blueprint."""
 import shutil
+import subprocess
 import time
+import threading
 from flask import Blueprint, jsonify, request
+from managers.cache_manager import HexStrikeCache
 
 system_bp = Blueprint('system', __name__)
 
 # Module-level start time for uptime calculation
 _start_time = time.time()
+
+# Module-level singletons
+_cache = HexStrikeCache()
+
+# Lightweight active-process registry (pid -> info dict)
+_active_processes: dict = {}
+_process_lock = threading.Lock()
 
 
 def _check_tool(tool_name: str) -> bool:
@@ -142,3 +152,57 @@ def get_telemetry():
         "errors": 0,
         "start_time": _start_time
     })
+
+
+@system_bp.route("/api/cache/stats", methods=["GET"])
+def cache_stats():
+    """Return LRU cache performance statistics"""
+    return jsonify({"success": True, "stats": _cache.get_stats()})
+
+
+@system_bp.route("/api/cache/clear", methods=["POST"])
+def cache_clear():
+    """Clear all entries from the LRU cache"""
+    _cache.cache.clear()
+    _cache.stats = {"hits": 0, "misses": 0, "evictions": 0}
+    return jsonify({"success": True})
+
+
+@system_bp.route("/api/processes/list", methods=["GET"])
+def processes_list():
+    """Return all currently tracked active processes"""
+    with _process_lock:
+        # Return a serialisable snapshot (exclude the raw subprocess.Popen object)
+        snapshot = {
+            str(pid): {k: v for k, v in info.items() if k != "process"}
+            for pid, info in _active_processes.items()
+        }
+    return jsonify({"success": True, "processes": snapshot})
+
+
+@system_bp.route("/api/command", methods=["POST"])
+def run_command():
+    """Execute an arbitrary shell command and return its output"""
+    data = request.get_json(silent=True) or {}
+    command = data.get("command", "")
+    if not command:
+        return jsonify({"success": False, "error": "No command provided"}), 400
+
+    try:
+        result = subprocess.run(
+            command,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        return jsonify({
+            "success": result.returncode == 0,
+            "output": result.stdout,
+            "stderr": result.stderr,
+            "return_code": result.returncode,
+        })
+    except subprocess.TimeoutExpired:
+        return jsonify({"success": False, "error": "Command timed out"}), 408
+    except Exception as exc:
+        return jsonify({"success": False, "error": str(exc)}), 500

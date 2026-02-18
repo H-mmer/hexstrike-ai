@@ -9,15 +9,20 @@ Routes remain in hexstrike_server.py for Phase 1.
 from flask import Flask
 from core.constants import API_PORT, API_HOST
 
-# Initialize Flask application
-app = Flask(__name__)
-app.config['JSON_SORT_KEYS'] = False
 
 def create_app():
-    """Factory function to create Flask app"""
+    """Application factory — returns a fresh Flask instance each call."""
+    flask_app = Flask(__name__)
+    flask_app.config['JSON_SORT_KEYS'] = False
+
     from core.routes.system import system_bp
-    app.register_blueprint(system_bp)
-    return app
+    flask_app.register_blueprint(system_bp)
+
+    return flask_app
+
+
+# Module-level singleton for the production server entry point
+app = create_app()
 
 def get_server_info():
     """Get server configuration info"""
