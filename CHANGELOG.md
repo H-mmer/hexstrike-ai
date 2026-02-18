@@ -34,7 +34,7 @@ All notable changes to HexStrike AI are documented here.
 - **docker-compose.yml** orchestrating 3 services on ports 8888/8889/8890
 - **DOCKER.md** comprehensive deployment guide
 
-#### Test Suite (161 tests)
+#### Test Suite (177 tests)
 - **85 unit tests** covering all installer modules (~22s)
 - **25 integration tests**: E2E workflow (6), mode hierarchy (9), category filtering (10) (~73s)
 - In-process integration tests (no subprocess scanning) for safety and speed
@@ -99,7 +99,7 @@ docker-compose.yml          # 3-service orchestration
 | 19 | E2E integration tests | 6 |
 | 20 | Mode hierarchy integration tests | 9 |
 | 21 | Category filtering integration tests | 10 |
-| 22 | Final documentation | 15 |
+| 22 | Final documentation | 16 |
 
 ---
 
