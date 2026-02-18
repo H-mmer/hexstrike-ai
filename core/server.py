@@ -15,6 +15,8 @@ app.config['JSON_SORT_KEYS'] = False
 
 def create_app():
     """Factory function to create Flask app"""
+    from core.routes.system import system_bp
+    app.register_blueprint(system_bp)
     return app
 
 def get_server_info():
