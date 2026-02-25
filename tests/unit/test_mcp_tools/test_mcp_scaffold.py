@@ -45,3 +45,22 @@ def test_execute_command_calls_api():
     mock_client.safe_post.assert_called_once()
     call_args = mock_client.safe_post.call_args
     assert call_args[0][0] == "api/command"
+
+
+def test_all_mcp_tool_modules_importable():
+    """All hexstrike_mcp_tools submodules should import without error."""
+    import hexstrike_mcp_tools
+    from hexstrike_mcp_tools import initialize
+    from unittest.mock import MagicMock
+    initialize(MagicMock())
+
+    import hexstrike_mcp_tools.network
+    import hexstrike_mcp_tools.web
+    import hexstrike_mcp_tools.cloud
+    import hexstrike_mcp_tools.binary
+    import hexstrike_mcp_tools.mobile
+    import hexstrike_mcp_tools.api_security
+    import hexstrike_mcp_tools.wireless
+    import hexstrike_mcp_tools.osint
+    import hexstrike_mcp_tools.workflows
+    import hexstrike_mcp_tools.system
