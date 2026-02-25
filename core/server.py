@@ -39,6 +39,9 @@ def create_app():
     from core.routes.intelligence import intelligence_bp
     flask_app.register_blueprint(intelligence_bp)
 
+    from core.routes.mobile import mobile_bp
+    flask_app.register_blueprint(mobile_bp)
+
     return flask_app
 
 
