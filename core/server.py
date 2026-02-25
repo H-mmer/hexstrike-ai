@@ -24,6 +24,9 @@ def create_app():
     from core.routes.web import web_bp
     flask_app.register_blueprint(web_bp)
 
+    from core.routes.cloud import cloud_bp
+    flask_app.register_blueprint(cloud_bp)
+
     return flask_app
 
 
