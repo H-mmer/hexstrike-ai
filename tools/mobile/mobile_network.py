@@ -24,7 +24,7 @@ def setup_mitmproxy_mobile(listen_port: int = 8080, transparent: bool = True) ->
         cmd = ['mitmproxy', '--listen-port', str(listen_port)]
 
         if transparent:
-            cmd.append('--mode transparent')
+            cmd.extend(['--mode', 'transparent'])
 
         # Start in background
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
