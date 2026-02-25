@@ -42,6 +42,12 @@ def create_app():
     from core.routes.mobile import mobile_bp
     flask_app.register_blueprint(mobile_bp)
 
+    from core.routes.api_security import api_security_bp
+    flask_app.register_blueprint(api_security_bp)
+
+    from core.routes.wireless import wireless_bp
+    flask_app.register_blueprint(wireless_bp)
+
     return flask_app
 
 
