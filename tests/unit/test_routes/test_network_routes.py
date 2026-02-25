@@ -353,3 +353,98 @@ def test_nmap_timeout_handled(app):
     data = resp.get_json()
     assert data['success'] is False
     assert 'timed out' in data.get('error', '').lower()
+
+
+# Phase 3 advanced network tests
+def test_scapy_route_exists(app):
+    with patch('core.routes.network.subprocess.run') as mock_run:
+        mock_run.return_value = MagicMock(stdout='', stderr='', returncode=0)
+        resp = app.test_client().post('/api/tools/network/scapy',
+                                      json={'target': '127.0.0.1', 'packet_type': 'icmp'})
+    assert resp.status_code == 200
+
+
+def test_naabu_route_exists(app):
+    with patch('core.routes.network.subprocess.run') as mock_run:
+        mock_run.return_value = MagicMock(stdout='80\n443\n', stderr='', returncode=0)
+        resp = app.test_client().post('/api/tools/network/naabu',
+                                      json={'target': '127.0.0.1'})
+    assert resp.status_code == 200
+
+
+def test_zmap_route_exists(app):
+    with patch('core.routes.network.subprocess.run') as mock_run:
+        mock_run.return_value = MagicMock(stdout='192.168.1.1\n', stderr='', returncode=0)
+        with patch('core.routes.network.shutil.which', return_value='/usr/bin/zmap'):
+            resp = app.test_client().post('/api/tools/network/zmap',
+                                          json={'target_network': '192.168.1.0/24'})
+    assert resp.status_code == 200
+
+
+def test_zmap_route_missing_target(app):
+    resp = app.test_client().post('/api/tools/network/zmap', json={})
+    assert resp.status_code == 400
+
+
+def test_naabu_route_missing_target(app):
+    resp = app.test_client().post('/api/tools/network/naabu', json={})
+    assert resp.status_code == 400
+
+
+def test_scapy_route_missing_target(app):
+    resp = app.test_client().post('/api/tools/network/scapy', json={})
+    assert resp.status_code == 400
+
+
+def test_snmp_check_route_exists(app):
+    with patch('core.routes.network.subprocess.run') as mock_run:
+        mock_run.return_value = MagicMock(stdout='System info\n', stderr='', returncode=0)
+        resp = app.test_client().post('/api/tools/network/snmp-check',
+                                      json={'target': '192.168.1.1'})
+    assert resp.status_code == 200
+
+
+def test_snmp_check_route_missing_target(app):
+    resp = app.test_client().post('/api/tools/network/snmp-check', json={})
+    assert resp.status_code == 400
+
+
+def test_ipv6_toolkit_route_exists(app):
+    with patch('core.routes.network.subprocess.run') as mock_run:
+        mock_run.return_value = MagicMock(stdout='', stderr='', returncode=0)
+        with patch('core.routes.network.shutil.which', return_value='/usr/bin/alive6'):
+            resp = app.test_client().post('/api/tools/network/ipv6-toolkit',
+                                          json={'target': '::1'})
+    assert resp.status_code == 200
+
+
+def test_ipv6_toolkit_route_missing_target(app):
+    resp = app.test_client().post('/api/tools/network/ipv6-toolkit', json={})
+    assert resp.status_code == 400
+
+
+def test_udp_proto_scanner_route_exists(app):
+    with patch('core.routes.network.subprocess.run') as mock_run:
+        mock_run.return_value = MagicMock(stdout='53 open\n', stderr='', returncode=0)
+        with patch('core.routes.network.shutil.which', return_value='/usr/bin/udp-proto-scanner'):
+            resp = app.test_client().post('/api/tools/network/udp-proto-scanner',
+                                          json={'target': '192.168.1.1'})
+    assert resp.status_code == 200
+
+
+def test_udp_proto_scanner_route_missing_target(app):
+    resp = app.test_client().post('/api/tools/network/udp-proto-scanner', json={})
+    assert resp.status_code == 400
+
+
+def test_cisco_torch_route_exists(app):
+    with patch('core.routes.network.subprocess.run') as mock_run:
+        mock_run.return_value = MagicMock(stdout='Cisco device found\n', stderr='', returncode=0)
+        resp = app.test_client().post('/api/tools/network/cisco-torch',
+                                      json={'target': '192.168.1.1'})
+    assert resp.status_code == 200
+
+
+def test_cisco_torch_route_missing_target(app):
+    resp = app.test_client().post('/api/tools/network/cisco-torch', json={})
+    assert resp.status_code == 400

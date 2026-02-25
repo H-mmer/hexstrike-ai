@@ -628,3 +628,238 @@ def autorecon():
     except Exception as e:
         logger.error(f"autorecon error: {e}")
         return jsonify({"success": False, "error": str(e), "output": ""}), 500
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 — advanced network tools  (/api/tools/network/*)
+# ---------------------------------------------------------------------------
+
+@network_bp.route('/api/tools/network/scapy', methods=['POST'])
+def scapy_packet_craft():
+    """Packet crafting and manipulation via scapy."""
+    params = request.json or {}
+    target = params.get('target', '')
+    if not target:
+        return jsonify({"success": False, "error": "target is required"}), 400
+    packet_type = params.get('packet_type', 'ICMP').upper()
+    scapy_script = (
+        f'from scapy.all import *\n'
+        f'target = "{target}"\n'
+        f'if "{packet_type}" == "TCP":\n'
+        f'    pkt = IP(dst=target)/TCP(dport=80,flags="S")\n'
+        f'elif "{packet_type}" == "UDP":\n'
+        f'    pkt = IP(dst=target)/UDP(dport=53)\n'
+        f'else:\n'
+        f'    pkt = IP(dst=target)/ICMP()\n'
+        f'send(pkt, verbose=0)\n'
+        f'print("Packet sent successfully")\n'
+    )
+    try:
+        result = subprocess.run(
+            ['python3', '-c', scapy_script],
+            capture_output=True, text=True, timeout=30,
+        )
+        return jsonify({
+            "success": result.returncode == 0,
+            "output": result.stdout,
+            "error": result.stderr,
+            "packet_type": packet_type,
+            "tool": "scapy",
+        })
+    except subprocess.TimeoutExpired:
+        return jsonify({"success": False, "error": "scapy timed out", "output": ""}), 408
+    except Exception as e:
+        logger.error(f"scapy error: {e}")
+        return jsonify({"success": False, "error": str(e), "output": ""}), 500
+
+
+@network_bp.route('/api/tools/network/naabu', methods=['POST'])
+def naabu_scan():
+    """Fast port scanning with naabu."""
+    params = request.json or {}
+    target = params.get('target', '')
+    if not target:
+        return jsonify({"success": False, "error": "target is required"}), 400
+    if not shutil.which('naabu'):
+        return _tool_not_found('naabu')
+    ports = params.get('ports', '1-65535')
+    rate = params.get('rate', 1000)
+    additional_args = params.get('additional_args', '')
+    cmd = ['naabu', '-host', target, '-p', ports, '-rate', str(rate), '-silent']
+    if additional_args:
+        cmd.extend(additional_args.split())
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        return jsonify({"success": result.returncode == 0, "output": result.stdout, "error": result.stderr})
+    except subprocess.TimeoutExpired:
+        return jsonify({"success": False, "error": "naabu timed out", "output": ""}), 408
+    except Exception as e:
+        logger.error(f"naabu error: {e}")
+        return jsonify({"success": False, "error": str(e), "output": ""}), 500
+
+
+@network_bp.route('/api/tools/network/zmap', methods=['POST'])
+def zmap_scan():
+    """Fast network-wide scanning with zmap."""
+    params = request.json or {}
+    target_network = params.get('target_network', '')
+    if not target_network:
+        return jsonify({"success": False, "error": "target_network is required"}), 400
+    if not shutil.which('zmap'):
+        return _tool_not_found('zmap')
+    port = params.get('port', 80)
+    rate = params.get('rate', 10000)
+    additional_args = params.get('additional_args', '')
+    cmd = ['zmap', '-p', str(port), '-r', str(rate), target_network]
+    if additional_args:
+        cmd.extend(additional_args.split())
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+        hosts = [line.strip() for line in result.stdout.split('\n') if line.strip()]
+        return jsonify({
+            "success": result.returncode == 0,
+            "hosts_found": hosts,
+            "count": len(hosts),
+            "error": result.stderr,
+            "tool": "zmap",
+        })
+    except subprocess.TimeoutExpired:
+        return jsonify({"success": False, "error": "zmap timed out", "output": ""}), 408
+    except Exception as e:
+        logger.error(f"zmap error: {e}")
+        return jsonify({"success": False, "error": str(e), "output": ""}), 500
+
+
+@network_bp.route('/api/tools/network/snmp-check', methods=['POST'])
+def snmp_check():
+    """SNMP enumeration with snmp-check."""
+    params = request.json or {}
+    target = params.get('target', '')
+    if not target:
+        return jsonify({"success": False, "error": "target is required"}), 400
+    if not shutil.which('snmp-check'):
+        return _tool_not_found('snmp-check')
+    community = params.get('community', 'public')
+    additional_args = params.get('additional_args', '')
+    cmd = ['snmp-check', '-c', community, target]
+    if additional_args:
+        cmd.extend(additional_args.split())
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        info = {"system_info": [], "network_info": [], "storage_info": []}
+        for line in result.stdout.split('\n'):
+            if 'System' in line:
+                info["system_info"].append(line.strip())
+            elif 'Network' in line or 'Interface' in line:
+                info["network_info"].append(line.strip())
+            elif 'Storage' in line or 'Disk' in line:
+                info["storage_info"].append(line.strip())
+        return jsonify({
+            "success": result.returncode == 0,
+            "community": community,
+            "info": info,
+            "output": result.stdout,
+            "error": result.stderr,
+            "tool": "snmp-check",
+        })
+    except subprocess.TimeoutExpired:
+        return jsonify({"success": False, "error": "snmp-check timed out", "output": ""}), 408
+    except Exception as e:
+        logger.error(f"snmp-check error: {e}")
+        return jsonify({"success": False, "error": str(e), "output": ""}), 500
+
+
+@network_bp.route('/api/tools/network/ipv6-toolkit', methods=['POST'])
+def ipv6_toolkit():
+    """IPv6 security testing with ipv6toolkit."""
+    params = request.json or {}
+    target = params.get('target', '')
+    if not target:
+        return jsonify({"success": False, "error": "target is required"}), 400
+    scan_type = params.get('scan_type', 'alive6')
+    tool_binary = scan_type if scan_type in ('alive6', 'dos-new-ip6', 'detect-new-ip6', 'fake_router6') else 'alive6'
+    if not shutil.which(tool_binary):
+        return _tool_not_found(tool_binary)
+    additional_args = params.get('additional_args', '')
+    cmd = [tool_binary, target]
+    if additional_args:
+        cmd.extend(additional_args.split())
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        return jsonify({
+            "success": result.returncode == 0,
+            "scan_type": scan_type,
+            "output": result.stdout,
+            "error": result.stderr,
+            "tool": "ipv6-toolkit",
+        })
+    except subprocess.TimeoutExpired:
+        return jsonify({"success": False, "error": "ipv6-toolkit timed out", "output": ""}), 408
+    except Exception as e:
+        logger.error(f"ipv6-toolkit error: {e}")
+        return jsonify({"success": False, "error": str(e), "output": ""}), 500
+
+
+@network_bp.route('/api/tools/network/udp-proto-scanner', methods=['POST'])
+def udp_proto_scanner():
+    """UDP protocol scanner."""
+    params = request.json or {}
+    target = params.get('target', '')
+    if not target:
+        return jsonify({"success": False, "error": "target is required"}), 400
+    if not shutil.which('udp-proto-scanner'):
+        return _tool_not_found('udp-proto-scanner')
+    proto_list = params.get('proto_list', [53, 67, 68, 69, 123, 161, 162, 500, 514, 520, 1900, 5353])
+    additional_args = params.get('additional_args', '')
+    cmd = ['udp-proto-scanner', target] + [str(p) for p in proto_list]
+    if additional_args:
+        cmd.extend(additional_args.split())
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+        return jsonify({
+            "success": result.returncode == 0,
+            "protocols_tested": proto_list,
+            "output": result.stdout,
+            "error": result.stderr,
+            "tool": "udp-proto-scanner",
+        })
+    except subprocess.TimeoutExpired:
+        return jsonify({"success": False, "error": "udp-proto-scanner timed out", "output": ""}), 408
+    except Exception as e:
+        logger.error(f"udp-proto-scanner error: {e}")
+        return jsonify({"success": False, "error": str(e), "output": ""}), 500
+
+
+@network_bp.route('/api/tools/network/cisco-torch', methods=['POST'])
+def cisco_torch():
+    """Cisco device security scanning with cisco-torch."""
+    params = request.json or {}
+    target = params.get('target', '')
+    if not target:
+        return jsonify({"success": False, "error": "target is required"}), 400
+    if not shutil.which('cisco-torch'):
+        return _tool_not_found('cisco-torch')
+    scan_type = params.get('scan_type', 'all')
+    additional_args = params.get('additional_args', '')
+    if scan_type == 'fingerprint':
+        cmd = ['cisco-torch', '-f', target]
+    elif scan_type == 'bruteforce':
+        cmd = ['cisco-torch', '-b', target]
+    else:
+        cmd = ['cisco-torch', '-A', target]
+    if additional_args:
+        cmd.extend(additional_args.split())
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        return jsonify({
+            "success": result.returncode == 0,
+            "scan_type": scan_type,
+            "output": result.stdout,
+            "error": result.stderr,
+            "tool": "cisco-torch",
+        })
+    except subprocess.TimeoutExpired:
+        return jsonify({"success": False, "error": "cisco-torch timed out", "output": ""}), 408
+    except Exception as e:
+        logger.error(f"cisco-torch error: {e}")
+        return jsonify({"success": False, "error": str(e), "output": ""}), 500
