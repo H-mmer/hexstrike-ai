@@ -111,7 +111,7 @@ def api_fuzz():
         return jsonify({"success": False, "error": "base_url is required"}), 400
     wordlist = params.get('wordlist', '')
     try:
-        result = rest_attacker(base_url)
+        result = rest_attacker(base_url, payloads=wordlist if wordlist else None)
         return jsonify({"success": True, "result": result})
     except Exception as e:
         logger.error(f"API fuzzing error: {e}")

@@ -83,10 +83,11 @@ def wifi_attack():
 def bluetooth_scan():
     """Bluetooth device scanning and vulnerability assessment."""
     params = request.json or {}
-    # interface param accepted but bluez_scan takes no args
+    target_addr = params.get('target_addr', '')
     try:
         results = {
             'bluez': bluez_scan(),
+            'blueborne': blueborne_scanner(target_addr) if target_addr else {"skipped": "no target_addr provided"},
         }
         return jsonify({"success": True, "results": results})
     except Exception as e:

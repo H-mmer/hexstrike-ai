@@ -85,3 +85,19 @@ def test_api_auth_test_missing_param(app):
 def test_api_monitoring_missing_param(app):
     resp = app.test_client().post('/api/tools/api/monitoring', json={})
     assert resp.status_code == 400
+
+
+def test_api_auth_test_with_jwt(app):
+    with patch('core.routes.api_security.jwt_hack') as mock_jwt, \
+         patch('core.routes.api_security.oauth_scanner') as mock_oauth, \
+         patch('core.routes.api_security.api_key_brute') as mock_apk:
+        mock_jwt.return_value = {'success': True, 'decoded_payload': {}}
+        mock_oauth.return_value = {'success': True}
+        mock_apk.return_value = {'success': True}
+        resp = app.test_client().post('/api/tools/api/auth-test',
+                                      json={'base_url': 'http://example.com',
+                                            'jwt_token': 'eyJhbGciOiJub25lIn0.e30.'})
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data['success'] is True
+    mock_jwt.assert_called_once()
