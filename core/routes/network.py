@@ -9,12 +9,12 @@ network_bp = Blueprint('network', __name__)
 
 
 def _tool_not_found(tool_name: str):
-    """Return a standard 'tool not installed' response."""
+    """Return a standard 'tool not installed' response (503 Service Unavailable)."""
     return jsonify({
         "success": False,
         "error": f"{tool_name} is not installed or not on PATH",
         "output": ""
-    })
+    }), 503
 
 
 def _run(cmd: list, timeout: int = 120):
