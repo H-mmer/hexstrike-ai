@@ -5,6 +5,7 @@ HexStrike AI - IntelligentDecisionEngine
 Extracted from monolithic hexstrike_server.py for modular architecture.
 """
 
+import re
 from typing import Dict, Any, List, Optional, Tuple
 from agents.base import TargetType, TechnologyStack, TargetProfile, AttackStep, AttackChain
 import logging
@@ -447,9 +448,12 @@ class IntelligentDecisionEngine:
         if context is None:
             context = {}
 
-        # Use advanced parameter optimizer if available
+        # Use advanced parameter optimizer if available (server context only)
         if hasattr(self, '_use_advanced_optimizer') and self._use_advanced_optimizer:
-            return parameter_optimizer.optimize_parameters_advanced(tool, profile, context)
+            try:
+                return parameter_optimizer.optimize_parameters_advanced(tool, profile, context)
+            except NameError:
+                pass  # parameter_optimizer not available; fall through to legacy optimization
 
         # Fallback to legacy optimization for compatibility
         optimized_params = {}
@@ -496,8 +500,12 @@ class IntelligentDecisionEngine:
         elif tool == "checkov":
             optimized_params = self._optimize_checkov_params(profile, context)
         else:
-            # Use advanced optimizer for unknown tools
-            return parameter_optimizer.optimize_parameters_advanced(tool, profile, context)
+            # Use advanced optimizer for unknown tools (only if available as server global)
+            try:
+                return parameter_optimizer.optimize_parameters_advanced(tool, profile, context)
+            except NameError:
+                # parameter_optimizer not available outside hexstrike_server context
+                optimized_params = {"tool": tool, "note": "default parameters"}
 
         return optimized_params
 

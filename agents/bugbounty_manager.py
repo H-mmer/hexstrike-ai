@@ -4,10 +4,15 @@ HexStrike AI - BugBountyWorkflowManager
 
 Extracted from monolithic hexstrike_server.py for modular architecture.
 """
+from __future__ import annotations
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, TYPE_CHECKING
 from dataclasses import dataclass
 import logging
+
+if TYPE_CHECKING:
+    pass  # BugBountyTarget is provided by the caller (hexstrike_server or core/routes/bugbounty)
+
 logger = logging.getLogger(__name__)
 
 

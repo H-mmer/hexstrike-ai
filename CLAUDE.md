@@ -7,10 +7,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 HexStrike AI is an AI-powered penetration testing MCP (Model Context Protocol) framework that provides 105+ security tools and 12+ autonomous AI agents for cybersecurity automation. It features a modular architecture with organized components:
 
 **Main Components:**
-1. **hexstrike_server.py** - Main entry point and Flask API server
-2. **hexstrike_mcp.py** - FastMCP client that exposes security tools to AI agents
+1. **hexstrike_server.py** - Thin entry point (~38 lines); imports and starts the Flask app from `core/server.py`
+2. **hexstrike_mcp.py** - Thin MCP launcher (~48 lines); imports and runs tools from `hexstrike_mcp_tools/`
 3. **Modular architecture** - agents/, managers/, tools/, core/, utils/ directories (Phase 1-3)
-4. **Installation system** - scripts/installer/ with automated tool installation (Phase 4 - COMPLETE, 22/22 tasks)
+4. **core/routes/** - 12 Flask Blueprints (Phase 1-3 Gap Closure - COMPLETE)
+5. **hexstrike_mcp_tools/** - Organized MCP tool modules, one per security category (Phase 1-3 Gap Closure - COMPLETE)
+6. **Installation system** - scripts/installer/ with automated tool installation (Phase 4 - COMPLETE, 22/22 tasks)
 
 ## Prerequisites
 
@@ -89,8 +91,21 @@ curl http://localhost:8888/api/processes/list
 The codebase has been refactored from monolithic files into a clean modular structure:
 
 **Core Components (`core/`):**
-- `server.py` - Flask API server and main application logic
+- `server.py` - Flask application factory and main application logic
 - `constants.py` - Shared constants and configuration values
+- `core/routes/` - 12 Flask Blueprints, one per security domain:
+  - `system.py` — health, telemetry, cache, processes, command
+  - `network.py` — nmap, rustscan, masscan, amass, subfinder, httpx, waybackurls, gau, dnsenum, enum4linux, smbmap, netexec, wafw00f, naabu, snmp, zmap, advanced recon
+  - `web.py` — gobuster, nuclei, nikto, sqlmap, ffuf, feroxbuster, wpscan, dalfox, dirsearch, wfuzz, katana, arjun, paramspider, js-analysis, injection, cms-scan, auth-test, cdn-bypass
+  - `cloud.py` — trivy, prowler, kube-hunter, kube-bench, docker-bench, scout-suite, cloudmapper, pacu, falco, checkov, terrascan, kubescape, container-escape, rbac-audit
+  - `binary.py` — gdb, radare2, ghidra, binwalk, checksec, strings, objdump, ropgadget, volatility3, foremost, steghide, exiftool, msfvenom, angr, rizin, yara, floss, forensics
+  - `ctf.py` — CTF workflow endpoints
+  - `bugbounty.py` — bug bounty workflow endpoints
+  - `intelligence.py` — AI intelligence, vulnerability intel, CVE analysis
+  - `mobile.py` — APK analysis, iOS analysis, Drozer, MITM
+  - `api_security.py` — API discovery, fuzzing, auth testing, monitoring
+  - `wireless.py` — WiFi attack, Bluetooth scan, RF analysis
+  - `osint.py` — passive recon, threat intel, social recon, breach check, Shodan
 
 **AI Agents (`agents/`):**
 - `decision_engine.py` - Intelligent tool selection and parameter optimization
@@ -111,20 +126,34 @@ The codebase has been refactored from monolithic files into a clean modular stru
 - `tools/web/` - Web application testing (gobuster, nuclei, sqlmap, nikto, etc.)
 - `tools/cloud/` - Cloud security (prowler, trivy, kube-hunter, etc.)
 - `tools/binary/` - Binary analysis (ghidra, radare2, gdb, volatility, etc.)
-- `tools/mobile/` - Mobile security (APK analysis, iOS tools) - Phase 3
-- `tools/api/` - API security (discovery, fuzzing, auth testing) - Phase 3
-- `tools/wireless/` - Wireless security (WiFi, Bluetooth, RF tools) - Phase 3
-- `tools/osint/` - OSINT and intelligence gathering
+- `tools/mobile/` - Mobile security (APK analysis, iOS tools)
+- `tools/api/` - API security (discovery, fuzzing, auth testing)
+- `tools/wireless/` - Wireless security (WiFi, Bluetooth, RF tools)
+- `tools/osint/` - OSINT and intelligence gathering (passive_recon.py, social_intel.py, threat_intel.py)
 
 **Utilities (`utils/`):**
 - `visual_engine.py` - Real-time dashboards and visual output (ModernVisualEngine)
 - `logger.py` - Enhanced logging with emojis and colors
 
-**MCP Client:**
-- `hexstrike_mcp.py` - FastMCP integration using `@mcp.tool()` decorators, client wrapper for server API calls, tool definitions exposed to AI agents
+**MCP Tools (`hexstrike_mcp_tools/`):**
+- `__init__.py` - Package init and MCP app instantiation
+- `client.py` - HexStrikeClient wrapper (safe_post helper, shared state)
+- `system.py` - System/health/cache/process MCP tools
+- `network.py` - Network recon MCP tools
+- `web.py` - Web security MCP tools
+- `cloud.py` - Cloud security MCP tools
+- `binary.py` - Binary analysis MCP tools
+- `mobile.py` - Mobile security MCP tools
+- `api_security.py` - API security MCP tools
+- `wireless.py` - Wireless security MCP tools
+- `osint.py` - OSINT MCP tools
+- `workflows.py` - CTF, bug bounty, and intelligence workflow MCP tools
+
+**MCP Launcher:**
+- `hexstrike_mcp.py` - Thin launcher (~48 lines); imports all modules from `hexstrike_mcp_tools/` and starts FastMCP
 
 **Server Entry Point:**
-- `hexstrike_server.py` - Main entry point that imports and orchestrates all components
+- `hexstrike_server.py` - Thin entry point (~38 lines); imports `core/server.py` app factory and starts Flask
 
 ### Key API Endpoints
 
@@ -136,20 +165,23 @@ The codebase has been refactored from monolithic files into a clean modular stru
 
 ### MCP Tool Registration Pattern
 
-In `hexstrike_mcp.py`, tools are registered using FastMCP decorators:
+Tools are registered in the appropriate module under `hexstrike_mcp_tools/` (e.g., `hexstrike_mcp_tools/network.py`):
 
 ```python
+from hexstrike_mcp_tools.client import get_client
+
 @mcp.tool()
 def tool_name(param1: str, param2: Optional[int] = None) -> str:
     """Tool description for AI agent"""
-    response = hexstrike_client.call_api(
+    return get_client().safe_post(
         "/api/endpoint",
         {"param1": param1, "param2": param2}
     )
-    return response
 ```
 
-All tools follow the pattern: decorator → docstring → API call → response formatting.
+All tools follow the pattern: import `get_client` from `hexstrike_mcp_tools.client` → `@mcp.tool()` decorator → docstring → `get_client().safe_post()` call.
+
+Each module is imported in `hexstrike_mcp.py` (the thin launcher) to register all tools at startup.
 
 ### Installation Infrastructure (Phase 4 - COMPLETE)
 
@@ -464,7 +496,7 @@ Long-running tools use `EnhancedProcessManager`:
 
 3. **Import in `tools/<category>/__init__.py`**
 
-4. **Add MCP tool decorator** in `hexstrike_mcp.py`
+4. **Add MCP tool decorator** in the matching `hexstrike_mcp_tools/<category>.py` module
 
 5. **Add unit tests** in `tests/unit/test_<category>_tools.py`
 
@@ -509,6 +541,7 @@ This file should be updated after major changes:
 - Use `#` key during Claude Code sessions to auto-incorporate learnings
 - Use `/claude-md-management:claude-md-improver` skill to audit CLAUDE.md quality periodically
 - The project evolved from monolithic (pre-Phase 1) to modular (Phase 1-3) - keep documentation in sync with such changes
+- **Phase 1-3 Gap Closure is complete**: hexstrike_server.py decomposed into 12 Flask Blueprints in `core/routes/`, MCP tools reorganized into `hexstrike_mcp_tools/`. Both entry points are now thin launchers (~50 lines each). Total tests: 505 passing.
 - **Phase 4 (Installation Infrastructure) is 100% complete (22/22 tasks)**
   - Completed: Core modules, modes, categories, CLI (Task 12), bash wrapper (Task 13), dependency checker (Task 14), pre-flight (Task 15), Dockerfile (Task 16), docker-compose (Task 17), DOCKER.md (Task 18), E2E integration tests (Task 19), mode hierarchy tests (Task 20), category tests (Task 21), final documentation (Task 22)
   - See docs/installation.md for the user-facing installation guide

@@ -4,6 +4,46 @@ All notable changes to HexStrike AI are documented here.
 
 ---
 
+## [v7.0.0-dev] - Phase 1-3 Gap Closure Complete
+
+### Summary
+Decomposed monolithic hexstrike_server.py (17,004 lines) and hexstrike_mcp.py (~5,450 lines) into a clean modular architecture using Flask Blueprints and organized MCP tool modules.
+
+### Changes
+
+**Architecture Decomposition:**
+- hexstrike_server.py: 17,004 lines → 38 lines (thin entry point)
+- hexstrike_mcp.py: ~5,450 lines → 48 lines (thin MCP launcher)
+
+**New: core/routes/ (12 Flask Blueprints)**
+- system.py — health, telemetry, cache, processes, command
+- network.py — nmap, rustscan, masscan, amass, subfinder, httpx, waybackurls, gau, dnsenum, enum4linux, smbmap, netexec, wafw00f, naabu, snmp, zmap, advanced tools
+- web.py — gobuster, nuclei, nikto, sqlmap, ffuf, feroxbuster, wpscan, dalfox, dirsearch, wfuzz, katana, arjun, paramspider, js-analysis, injection, cms-scan, auth-test, cdn-bypass
+- cloud.py — trivy, prowler, kube-hunter, kube-bench, docker-bench, scout-suite, cloudmapper, pacu, falco, checkov, terrascan, kubescape, container-escape, rbac-audit
+- binary.py — gdb, radare2, ghidra, binwalk, checksec, strings, objdump, ropgadget, volatility3, foremost, steghide, exiftool, msfvenom, angr, rizin, yara, floss, forensics
+- ctf.py — CTF workflow endpoints
+- bugbounty.py — bug bounty workflow endpoints
+- intelligence.py — AI intelligence, vulnerability intel, CVE analysis
+- mobile.py — APK analysis, iOS analysis, Drozer, MITM (Phase 2 complete)
+- api_security.py — API discovery, fuzzing, auth testing, monitoring (Phase 2 complete)
+- wireless.py — WiFi attack, Bluetooth scan, RF analysis (Phase 2 complete)
+- osint.py — passive recon, threat intel, social recon, breach check, Shodan
+
+**New: hexstrike_mcp_tools/ (11 MCP modules)**
+- Organized MCP tool registrations for each category
+- 84+ MCP tools registered via @mcp.tool() decorators
+
+**New: tools/osint/ (implemented from scratch)**
+- passive_recon.py — shodan, whois, theHarvester, dnsdumpster, censys
+- social_intel.py — sherlock, holehe, breach_lookup, linkedin_recon
+- threat_intel.py — virustotal, OTX, URLScan, shodan CVE lookup
+
+**Testing:**
+- Total tests: 505 passing (up from 177 baseline)
+- New test files: core/routes tests, hexstrike_mcp_tools tests, OSINT tools tests, integration blueprint tests
+
+---
+
 ## v7.0.0-dev — Phase 4: Installation Infrastructure
 
 **Branch:** `v7.0-dev`
