@@ -18,6 +18,9 @@ def create_app():
     from core.routes.system import system_bp
     flask_app.register_blueprint(system_bp)
 
+    from core.routes.network import network_bp
+    flask_app.register_blueprint(network_bp)
+
     return flask_app
 
 
