@@ -4,11 +4,24 @@ HexStrike AI - CTFWorkflowManager
 
 Extracted from monolithic hexstrike_server.py for modular architecture.
 """
+from __future__ import annotations
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, TYPE_CHECKING
 from dataclasses import dataclass
 import logging
+
+if TYPE_CHECKING:
+    pass  # CTFChallenge is provided by the caller (hexstrike_server or core/routes/ctf)
+
 logger = logging.getLogger(__name__)
+
+# Lazy import of CTFToolManager to avoid circular imports
+def _get_ctf_tool_manager():
+    try:
+        from agents.ctf_tools import CTFToolManager
+        return CTFToolManager()
+    except ImportError:
+        return None
 
 
 class CTFWorkflowManager:
@@ -132,8 +145,11 @@ class CTFWorkflowManager:
         }
 
         # Enhanced tool selection using CTFToolManager
-        ctf_tool_manager = CTFToolManager()
-        workflow["tools"] = ctf_tool_manager.suggest_tools_for_challenge(challenge.description, challenge.category)
+        ctf_tool_manager = _get_ctf_tool_manager()
+        if ctf_tool_manager is not None:
+            workflow["tools"] = ctf_tool_manager.suggest_tools_for_challenge(challenge.description, challenge.category)
+        else:
+            workflow["tools"] = []
 
         # Get category-specific strategies with enhanced intelligence
         if challenge.category in self.solving_strategies:

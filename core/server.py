@@ -30,6 +30,15 @@ def create_app():
     from core.routes.binary import binary_bp
     flask_app.register_blueprint(binary_bp)
 
+    from core.routes.ctf import ctf_bp
+    flask_app.register_blueprint(ctf_bp)
+
+    from core.routes.bugbounty import bugbounty_bp
+    flask_app.register_blueprint(bugbounty_bp)
+
+    from core.routes.intelligence import intelligence_bp
+    flask_app.register_blueprint(intelligence_bp)
+
     return flask_app
 
 

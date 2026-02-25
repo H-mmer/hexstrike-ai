@@ -5,7 +5,7 @@ HexStrike AI - CTFToolManager
 Extracted from monolithic hexstrike_server.py for modular architecture.
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, List
 import logging
 logger = logging.getLogger(__name__)
 
