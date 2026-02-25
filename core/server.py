@@ -21,6 +21,9 @@ def create_app():
     from core.routes.network import network_bp
     flask_app.register_blueprint(network_bp)
 
+    from core.routes.web import web_bp
+    flask_app.register_blueprint(web_bp)
+
     return flask_app
 
 
