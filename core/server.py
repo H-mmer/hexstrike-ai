@@ -48,6 +48,9 @@ def create_app():
     from core.routes.wireless import wireless_bp
     flask_app.register_blueprint(wireless_bp)
 
+    from core.routes.osint import osint_bp
+    flask_app.register_blueprint(osint_bp)
+
     return flask_app
 
 
