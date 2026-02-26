@@ -9,29 +9,6 @@ logger = logging.getLogger(__name__)
 binary_bp = Blueprint('binary', __name__)
 
 # ---------------------------------------------------------------------------
-# Optional Phase 3 module imports
-# ---------------------------------------------------------------------------
-
-try:
-    from tools.binary.enhanced_binary import rizin_analyze
-    _ENHANCED_BINARY_AVAILABLE = True
-except ImportError:
-    _ENHANCED_BINARY_AVAILABLE = False
-
-try:
-    from tools.binary.malware_analysis import yara_scan, floss_analyze
-    _MALWARE_ANALYSIS_AVAILABLE = True
-except ImportError:
-    _MALWARE_ANALYSIS_AVAILABLE = False
-
-try:
-    from tools.binary.forensics import autopsy_cli_analyze
-    _FORENSICS_AVAILABLE = True
-except ImportError:
-    _FORENSICS_AVAILABLE = False
-
-
-# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -415,7 +392,11 @@ def binary_rizin():
     if not binary:
         return jsonify({"success": False, "error": "binary is required"}), 400
     analysis_depth = params.get('analysis_depth', 'aa')
-    if _ENHANCED_BINARY_AVAILABLE:
+    try:
+        from tools.binary.enhanced_binary import rizin_analyze
+    except ImportError:
+        rizin_analyze = None
+    if rizin_analyze is not None:
         try:
             result = rizin_analyze(binary_path=binary, analysis_depth=analysis_depth)
             return jsonify(result)
@@ -449,7 +430,11 @@ def binary_yara():
     if not file_path:
         return jsonify({"success": False, "error": "file is required"}), 400
     rules = params.get('rules', '')
-    if _MALWARE_ANALYSIS_AVAILABLE:
+    try:
+        from tools.binary.malware_analysis import yara_scan
+    except ImportError:
+        yara_scan = None
+    if yara_scan is not None:
         try:
             result = yara_scan(target_path=file_path, rules_path=rules or None)
             return jsonify(result)
@@ -486,7 +471,11 @@ def binary_floss():
     file_path = params.get('file', '') or params.get('file_path', '')
     if not file_path:
         return jsonify({"success": False, "error": "file is required"}), 400
-    if _MALWARE_ANALYSIS_AVAILABLE:
+    try:
+        from tools.binary.malware_analysis import floss_analyze
+    except ImportError:
+        floss_analyze = None
+    if floss_analyze is not None:
         try:
             result = floss_analyze(binary_path=file_path)
             return jsonify(result)
@@ -520,7 +509,11 @@ def binary_forensics():
     if not image_path:
         return jsonify({"success": False, "error": "image_path is required"}), 400
     case_dir = params.get('case_dir', '/tmp/forensics_case')
-    if _FORENSICS_AVAILABLE:
+    try:
+        from tools.binary.forensics import autopsy_cli_analyze
+    except ImportError:
+        autopsy_cli_analyze = None
+    if autopsy_cli_analyze is not None:
         try:
             result = autopsy_cli_analyze(case_dir=case_dir, image_path=image_path)
             return jsonify(result)

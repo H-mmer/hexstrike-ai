@@ -9,23 +9,6 @@ logger = logging.getLogger(__name__)
 cloud_bp = Blueprint('cloud', __name__)
 
 # ---------------------------------------------------------------------------
-# Optional Phase 3 module imports
-# ---------------------------------------------------------------------------
-
-try:
-    from tools.cloud.cloud_native import kubescape_scan, rbac_police_audit
-    _CLOUD_NATIVE_AVAILABLE = True
-except ImportError:
-    _CLOUD_NATIVE_AVAILABLE = False
-
-try:
-    from tools.cloud.container_escape import deepce_scan
-    _CONTAINER_ESCAPE_AVAILABLE = True
-except ImportError:
-    _CONTAINER_ESCAPE_AVAILABLE = False
-
-
-# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -344,7 +327,11 @@ def cloud_kubescape():
     params = request.json or {}
     target = params.get('target', '')
     framework = params.get('framework', 'nsa')
-    if _CLOUD_NATIVE_AVAILABLE:
+    try:
+        from tools.cloud.cloud_native import kubescape_scan
+    except ImportError:
+        kubescape_scan = None
+    if kubescape_scan is not None:
         try:
             result = kubescape_scan(target=target or None, framework=framework)
             return jsonify(result)
@@ -377,7 +364,11 @@ def cloud_container_escape():
     """Execute container escape detection and enumeration tools."""
     params = request.json or {}
     technique = params.get('technique', 'deepce')
-    if _CONTAINER_ESCAPE_AVAILABLE:
+    try:
+        from tools.cloud.container_escape import deepce_scan
+    except ImportError:
+        deepce_scan = None
+    if deepce_scan is not None:
         try:
             result = deepce_scan()
             return jsonify(result)
@@ -408,7 +399,11 @@ def cloud_rbac_audit():
     """Audit Kubernetes RBAC bindings and privilege escalation paths."""
     params = request.json or {}
     namespace = params.get('namespace', '')
-    if _CLOUD_NATIVE_AVAILABLE:
+    try:
+        from tools.cloud.cloud_native import rbac_police_audit
+    except ImportError:
+        rbac_police_audit = None
+    if rbac_police_audit is not None:
         try:
             result = rbac_police_audit(namespace=namespace or None)
             return jsonify(result)

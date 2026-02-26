@@ -1,4 +1,5 @@
 """Unit tests for the cloud security tool routes Blueprint."""
+import sys
 import pytest
 from unittest.mock import patch, MagicMock
 from flask import Flask
@@ -59,11 +60,11 @@ def test_prowler_route_tool_missing(app):
 
 
 # ---------------------------------------------------------------------------
-# Phase 3: kubescape
+# Phase 3: kubescape (fallback subprocess path)
 # ---------------------------------------------------------------------------
 
 def test_cloud_kubescape_route_exists(app):
-    with patch('core.routes.cloud._CLOUD_NATIVE_AVAILABLE', False), \
+    with patch.dict(sys.modules, {'tools.cloud.cloud_native': None}), \
          patch('core.routes.cloud.subprocess.run') as mock_run, \
          patch('core.routes.cloud.shutil.which', return_value='/usr/bin/kubescape'):
         mock_run.return_value = MagicMock(stdout='{}', stderr='', returncode=0)
@@ -73,18 +74,18 @@ def test_cloud_kubescape_route_exists(app):
 
 
 def test_cloud_kubescape_route_tool_missing(app):
-    with patch('core.routes.cloud._CLOUD_NATIVE_AVAILABLE', False), \
+    with patch.dict(sys.modules, {'tools.cloud.cloud_native': None}), \
          patch('core.routes.cloud.shutil.which', return_value=None):
         resp = app.test_client().post('/api/tools/cloud/kubescape', json={})
     assert resp.status_code == 503
 
 
 # ---------------------------------------------------------------------------
-# Phase 3: container-escape
+# Phase 3: container-escape (fallback subprocess path)
 # ---------------------------------------------------------------------------
 
 def test_cloud_container_escape_route_exists(app):
-    with patch('core.routes.cloud._CONTAINER_ESCAPE_AVAILABLE', False), \
+    with patch.dict(sys.modules, {'tools.cloud.container_escape': None}), \
          patch('core.routes.cloud.subprocess.run') as mock_run, \
          patch('core.routes.cloud.shutil.which', return_value='/usr/bin/amicontained'):
         mock_run.return_value = MagicMock(stdout='', stderr='', returncode=0)
@@ -94,7 +95,7 @@ def test_cloud_container_escape_route_exists(app):
 
 
 def test_cloud_rbac_audit_route_exists(app):
-    with patch('core.routes.cloud._CLOUD_NATIVE_AVAILABLE', False), \
+    with patch.dict(sys.modules, {'tools.cloud.cloud_native': None}), \
          patch('core.routes.cloud.subprocess.run') as mock_run, \
          patch('core.routes.cloud.shutil.which', return_value='/usr/bin/kubectl'):
         mock_run.return_value = MagicMock(stdout='{}', stderr='', returncode=0)

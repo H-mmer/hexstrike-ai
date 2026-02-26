@@ -1,4 +1,5 @@
 """Unit tests for the binary analysis and forensics tool routes Blueprint."""
+import sys
 import pytest
 from unittest.mock import patch, MagicMock
 from flask import Flask
@@ -66,7 +67,7 @@ def test_binwalk_route_tool_missing(app):
 
 
 # ---------------------------------------------------------------------------
-# Phase 3: yara
+# Phase 3: yara (fallback subprocess path)
 # ---------------------------------------------------------------------------
 
 def test_binary_yara_route_missing_file(app):
@@ -75,7 +76,7 @@ def test_binary_yara_route_missing_file(app):
 
 
 def test_binary_yara_route_exists(app):
-    with patch('core.routes.binary._MALWARE_ANALYSIS_AVAILABLE', False), \
+    with patch.dict(sys.modules, {'tools.binary.malware_analysis': None}), \
          patch('core.routes.binary.subprocess.run') as mock_run, \
          patch('core.routes.binary.shutil.which', return_value='/usr/bin/yara'):
         mock_run.return_value = MagicMock(stdout='', stderr='', returncode=0)
@@ -87,7 +88,7 @@ def test_binary_yara_route_exists(app):
 
 
 def test_binary_yara_route_tool_missing(app):
-    with patch('core.routes.binary._MALWARE_ANALYSIS_AVAILABLE', False), \
+    with patch.dict(sys.modules, {'tools.binary.malware_analysis': None}), \
          patch('core.routes.binary.shutil.which', return_value=None):
         resp = app.test_client().post('/api/tools/binary/yara',
                                       json={'file': '/tmp/sample.exe'})
@@ -95,7 +96,7 @@ def test_binary_yara_route_tool_missing(app):
 
 
 # ---------------------------------------------------------------------------
-# Phase 3: floss
+# Phase 3: floss (fallback subprocess path)
 # ---------------------------------------------------------------------------
 
 def test_binary_floss_route_missing_file(app):
@@ -104,7 +105,7 @@ def test_binary_floss_route_missing_file(app):
 
 
 def test_binary_floss_route_exists(app):
-    with patch('core.routes.binary._MALWARE_ANALYSIS_AVAILABLE', False), \
+    with patch.dict(sys.modules, {'tools.binary.malware_analysis': None}), \
          patch('core.routes.binary.subprocess.run') as mock_run, \
          patch('core.routes.binary.shutil.which', return_value='/usr/bin/floss'):
         mock_run.return_value = MagicMock(stdout='', stderr='', returncode=0)
@@ -115,7 +116,7 @@ def test_binary_floss_route_exists(app):
 
 
 # ---------------------------------------------------------------------------
-# Phase 3: rizin
+# Phase 3: rizin (fallback subprocess path)
 # ---------------------------------------------------------------------------
 
 def test_binary_rizin_route_missing_binary(app):
@@ -124,7 +125,7 @@ def test_binary_rizin_route_missing_binary(app):
 
 
 def test_binary_rizin_route_exists(app):
-    with patch('core.routes.binary._ENHANCED_BINARY_AVAILABLE', False), \
+    with patch.dict(sys.modules, {'tools.binary.enhanced_binary': None}), \
          patch('core.routes.binary.subprocess.run') as mock_run, \
          patch('core.routes.binary.shutil.which', return_value='/usr/bin/rizin'):
         mock_run.return_value = MagicMock(stdout='', stderr='', returncode=0)
@@ -135,7 +136,7 @@ def test_binary_rizin_route_exists(app):
 
 
 # ---------------------------------------------------------------------------
-# Phase 3: forensics
+# Phase 3: forensics (fallback subprocess path)
 # ---------------------------------------------------------------------------
 
 def test_binary_forensics_route_missing_image(app):
@@ -144,7 +145,7 @@ def test_binary_forensics_route_missing_image(app):
 
 
 def test_binary_forensics_route_exists(app):
-    with patch('core.routes.binary._FORENSICS_AVAILABLE', False), \
+    with patch.dict(sys.modules, {'tools.binary.forensics': None}), \
          patch('core.routes.binary.subprocess.run') as mock_run, \
          patch('core.routes.binary.shutil.which', return_value='/usr/bin/fls'):
         mock_run.return_value = MagicMock(stdout='', stderr='', returncode=0)

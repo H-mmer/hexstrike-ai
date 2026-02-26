@@ -6,53 +6,6 @@ from flask import Blueprint, request, jsonify
 logger = logging.getLogger(__name__)
 wireless_bp = Blueprint('wireless', __name__)
 
-# ---------------------------------------------------------------------------
-# Optional tool imports — wifi_tools
-# ---------------------------------------------------------------------------
-
-try:
-    from tools.wireless.wifi_tools import wifite2_attack
-    _WIFI_AVAILABLE = True
-except ImportError:
-    _WIFI_AVAILABLE = False
-
-    def wifite2_attack(interface, **kwargs):
-        return {"success": False, "error": "wifi_tools not available"}
-
-
-# ---------------------------------------------------------------------------
-# Optional tool imports — bluetooth_tools
-# ---------------------------------------------------------------------------
-
-try:
-    from tools.wireless.bluetooth_tools import bluez_scan, blueborne_scanner
-    _BT_AVAILABLE = True
-except ImportError:
-    _BT_AVAILABLE = False
-
-    def bluez_scan(**kwargs):
-        return {"success": False, "error": "bluetooth_tools not available"}
-
-    def blueborne_scanner(target_addr, **kwargs):
-        return {"success": False, "error": "bluetooth_tools not available"}
-
-
-# ---------------------------------------------------------------------------
-# Optional tool imports — rf_tools
-# ---------------------------------------------------------------------------
-
-try:
-    from tools.wireless.rf_tools import rtl_sdr_scan, hackrf_sweep
-    _RF_AVAILABLE = True
-except ImportError:
-    _RF_AVAILABLE = False
-
-    def rtl_sdr_scan(**kwargs):
-        return {"success": False, "error": "rf_tools not available"}
-
-    def hackrf_sweep(**kwargs):
-        return {"success": False, "error": "rf_tools not available"}
-
 
 # ---------------------------------------------------------------------------
 # WiFi attack
@@ -65,6 +18,10 @@ def wifi_attack():
     interface = params.get('interface', '')
     if not interface:
         return jsonify({"success": False, "error": "interface is required"}), 400
+    try:
+        from tools.wireless.wifi_tools import wifite2_attack
+    except ImportError:
+        return jsonify({"success": False, "error": "wifi_tools not available"}), 503
     target_bssid = params.get('target_bssid', None)
     attack_type = params.get('attack_type', 'all')
     try:
@@ -84,6 +41,10 @@ def bluetooth_scan():
     """Bluetooth device scanning and vulnerability assessment."""
     params = request.json or {}
     target_addr = params.get('target_addr', '')
+    try:
+        from tools.wireless.bluetooth_tools import bluez_scan, blueborne_scanner
+    except ImportError:
+        return jsonify({"success": False, "error": "bluetooth_tools not available"}), 503
     try:
         results = {
             'bluez': bluez_scan(),
@@ -105,6 +66,10 @@ def rf_analysis():
     params = request.json or {}
     frequency = params.get('frequency', 100.0)
     device = params.get('device', 'rtlsdr')
+    try:
+        from tools.wireless.rf_tools import rtl_sdr_scan, hackrf_sweep
+    except ImportError:
+        return jsonify({"success": False, "error": "rf_tools not available"}), 503
     try:
         if device == 'hackrf':
             result = hackrf_sweep()

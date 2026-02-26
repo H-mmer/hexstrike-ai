@@ -6,58 +6,6 @@ from flask import Blueprint, request, jsonify
 logger = logging.getLogger(__name__)
 mobile_bp = Blueprint('mobile', __name__)
 
-# ---------------------------------------------------------------------------
-# Optional Phase 3 module imports
-# ---------------------------------------------------------------------------
-
-try:
-    from tools.mobile.apk_tools import apktool_decompile, jadx_decompile, androguard_analyze
-    _APK_AVAILABLE = True
-except ImportError:
-    _APK_AVAILABLE = False
-
-    def apktool_decompile(apk_path, **kwargs):
-        return {"success": False, "error": "apk_tools not available"}
-
-    def jadx_decompile(apk_path, **kwargs):
-        return {"success": False, "error": "apk_tools not available"}
-
-    def androguard_analyze(apk_path, **kwargs):
-        return {"success": False, "error": "apk_tools not available"}
-
-
-try:
-    from tools.mobile.ios_tools import ipa_analyzer, class_dump
-    _IOS_AVAILABLE = True
-except ImportError:
-    _IOS_AVAILABLE = False
-
-    def ipa_analyzer(ipa_path):
-        return {"success": False, "error": "ios_tools not available"}
-
-    def class_dump(binary_path, **kwargs):
-        return {"success": False, "error": "ios_tools not available"}
-
-
-try:
-    from tools.mobile.mobile_exploit import drozer_scan
-    _EXPLOIT_AVAILABLE = True
-except ImportError:
-    _EXPLOIT_AVAILABLE = False
-
-    def drozer_scan(package_name, **kwargs):
-        return {"success": False, "error": "mobile_exploit not available"}
-
-
-try:
-    from tools.mobile.mobile_network import setup_mitmproxy_mobile
-    _NETWORK_AVAILABLE = True
-except ImportError:
-    _NETWORK_AVAILABLE = False
-
-    def setup_mitmproxy_mobile(listen_port=8080, **kwargs):
-        return {"success": False, "error": "mobile_network not available"}
-
 
 # ---------------------------------------------------------------------------
 # APK analysis
@@ -70,6 +18,10 @@ def mobile_apk_analyze():
     apk_path = params.get('apk_path', '')
     if not apk_path:
         return jsonify({"success": False, "error": "apk_path is required"}), 400
+    try:
+        from tools.mobile.apk_tools import apktool_decompile, jadx_decompile, androguard_analyze
+    except ImportError:
+        return jsonify({"success": False, "error": "apk_tools not available"}), 503
     try:
         results = {
             'apktool': apktool_decompile(apk_path),
@@ -94,6 +46,10 @@ def mobile_ios_analyze():
     if not ipa_path:
         return jsonify({"success": False, "error": "ipa_path is required"}), 400
     try:
+        from tools.mobile.ios_tools import ipa_analyzer, class_dump
+    except ImportError:
+        return jsonify({"success": False, "error": "ios_tools not available"}), 503
+    try:
         results = {
             'ipa_analyzer': ipa_analyzer(ipa_path),
             'class_dump': class_dump(ipa_path),
@@ -116,6 +72,10 @@ def mobile_drozer():
     if not package:
         return jsonify({"success": False, "error": "package is required"}), 400
     try:
+        from tools.mobile.mobile_exploit import drozer_scan
+    except ImportError:
+        return jsonify({"success": False, "error": "mobile_exploit not available"}), 503
+    try:
         return jsonify({"success": True, "result": drozer_scan(package)})
     except Exception as e:
         logger.error(f"Drozer error: {e}")
@@ -131,6 +91,10 @@ def mobile_mitm():
     """Mobile traffic interception using mitmproxy."""
     params = request.json or {}
     listen_port = params.get('listen_port', 8080)
+    try:
+        from tools.mobile.mobile_network import setup_mitmproxy_mobile
+    except ImportError:
+        return jsonify({"success": False, "error": "mobile_network not available"}), 503
     try:
         return jsonify({"success": True, "result": setup_mitmproxy_mobile(listen_port=listen_port)})
     except Exception as e:
