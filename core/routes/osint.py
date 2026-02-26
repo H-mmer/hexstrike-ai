@@ -6,14 +6,11 @@ from flask import Blueprint, request, jsonify
 logger = logging.getLogger(__name__)
 osint_bp = Blueprint('osint', __name__)
 
-from tools.osint.passive_recon import shodan_search, whois_lookup, the_harvester, dnsdumpster_recon, censys_search
-from tools.osint.social_intel import sherlock_search, holehe_check, breach_lookup
-from tools.osint.threat_intel import virustotal_lookup, otx_lookup, urlscan_lookup, shodan_cve_lookup
-
 
 @osint_bp.route('/api/osint/passive-recon', methods=['POST'])
 def osint_passive_recon():
     """Comprehensive passive recon: subdomains, emails, DNS, hosts."""
+    from tools.osint.passive_recon import shodan_search, whois_lookup, the_harvester, dnsdumpster_recon
     params = request.json or {}
     domain = params.get('domain', '')
     if not domain:
@@ -36,6 +33,7 @@ def osint_passive_recon():
 @osint_bp.route('/api/osint/threat-intel', methods=['POST'])
 def osint_threat_intel():
     """Threat intelligence IOC lookup (VT, OTX, URLScan)."""
+    from tools.osint.threat_intel import virustotal_lookup, otx_lookup, urlscan_lookup
     params = request.json or {}
     ioc = params.get('ioc', '')
     if not ioc:
@@ -55,6 +53,7 @@ def osint_threat_intel():
 @osint_bp.route('/api/osint/social-recon', methods=['POST'])
 def osint_social_recon():
     """Social media and identity OSINT."""
+    from tools.osint.social_intel import sherlock_search, holehe_check
     params = request.json or {}
     try:
         results = {}
@@ -70,6 +69,7 @@ def osint_social_recon():
 @osint_bp.route('/api/osint/breach-check', methods=['POST'])
 def osint_breach_check():
     """Check email against known breach databases."""
+    from tools.osint.social_intel import breach_lookup
     params = request.json or {}
     email = params.get('email', '')
     if not email:
@@ -84,6 +84,7 @@ def osint_breach_check():
 @osint_bp.route('/api/osint/shodan', methods=['POST'])
 def osint_shodan():
     """Shodan search and host lookup."""
+    from tools.osint.passive_recon import shodan_search
     params = request.json or {}
     try:
         result = shodan_search(params.get('query', ''), params.get('api_key', ''))
@@ -95,6 +96,7 @@ def osint_shodan():
 @osint_bp.route('/api/osint/ioc-cve', methods=['POST'])
 def osint_cve_lookup():
     """Look up CVEs for services on an IP via Shodan."""
+    from tools.osint.threat_intel import shodan_cve_lookup
     params = request.json or {}
     try:
         result = shodan_cve_lookup(params.get('ip', ''))
