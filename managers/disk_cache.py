@@ -5,12 +5,12 @@ from __future__ import annotations
 import os
 import tempfile
 import threading
-import time
 from typing import Any, Optional
 
 import diskcache
 
 _BYTES_PER_MB = 1024 * 1024
+_SENTINEL = object()
 
 
 class DiskTieredCache:
@@ -48,13 +48,13 @@ class DiskTieredCache:
         self._disk_size_mb = disk_size_mb
 
     def get(self, key: str) -> Optional[Any]:
-        val = self._mem.get(key, default=None)
-        if val is not None:
+        val = self._mem.get(key, default=_SENTINEL)
+        if val is not _SENTINEL:
             with self._lock:
                 self._hits += 1
             return val
-        val = self._disk.get(key, default=None)
-        if val is not None:
+        val = self._disk.get(key, default=_SENTINEL)
+        if val is not _SENTINEL:
             with self._lock:
                 self._hits += 1
             return val

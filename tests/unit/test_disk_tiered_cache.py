@@ -1,6 +1,5 @@
 # tests/unit/test_disk_tiered_cache.py
 """Tests for DiskTieredCache — write BEFORE implementation."""
-import pytest
 import tempfile
 import os
 
