@@ -863,3 +863,152 @@ def cisco_torch():
     except Exception as e:
         logger.error(f"cisco-torch error: {e}")
         return jsonify({"success": False, "error": str(e), "output": ""}), 500
+
+
+# ===========================================================================
+# Async route variants — return HTTP 202 + task_id for background polling
+# ===========================================================================
+
+@network_bp.route('/api/network/nmap/async', methods=['POST'])
+def network_nmap_async():
+    """Launch nmap in background; returns task_id for polling."""
+    from core.async_runner import async_run
+    params = request.json or {}
+    target = params.get('target', '')
+    if not target:
+        return jsonify({"success": False, "error": "target is required"}), 400
+
+    def _run_nmap():
+        if not shutil.which('nmap'):
+            return {"success": False, "error": "nmap not installed"}
+        scan_type = params.get('scan_type', '-sCV')
+        ports = params.get('ports', '')
+        additional_args = params.get('additional_args', '-T4 -Pn')
+        cmd = ['nmap']
+        cmd.extend(scan_type.split())
+        if ports:
+            cmd.extend(['-p', ports])
+        if additional_args:
+            cmd.extend(additional_args.split())
+        cmd.append(target)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        return {"success": result.returncode == 0, "output": result.stdout, "error": result.stderr}
+
+    task_id = async_run(_run_nmap, f"nmap {target}")
+    return jsonify({"task_id": task_id, "status": "pending"}), 202
+
+
+@network_bp.route('/api/network/rustscan/async', methods=['POST'])
+def network_rustscan_async():
+    """Launch rustscan in background; returns task_id for polling."""
+    from core.async_runner import async_run
+    params = request.json or {}
+    target = params.get('target', '')
+    if not target:
+        return jsonify({"success": False, "error": "target is required"}), 400
+
+    def _run_rustscan():
+        if not shutil.which('rustscan'):
+            return {"success": False, "error": "rustscan not installed"}
+        ports = params.get('ports', '')
+        ulimit = params.get('ulimit', 5000)
+        batch_size = params.get('batch_size', 4500)
+        scan_timeout = params.get('timeout', 1500)
+        additional_args = params.get('additional_args', '')
+        cmd = ['rustscan', '-a', target, '--ulimit', str(ulimit), '-b', str(batch_size), '-t', str(scan_timeout)]
+        if ports:
+            cmd.extend(['-p', ports])
+        if additional_args:
+            cmd.extend(additional_args.split())
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        return {"success": result.returncode == 0, "output": result.stdout, "error": result.stderr}
+
+    task_id = async_run(_run_rustscan, f"rustscan {target}")
+    return jsonify({"task_id": task_id, "status": "pending"}), 202
+
+
+@network_bp.route('/api/network/masscan/async', methods=['POST'])
+def network_masscan_async():
+    """Launch masscan in background; returns task_id for polling."""
+    from core.async_runner import async_run
+    params = request.json or {}
+    target = params.get('target', '')
+    if not target:
+        return jsonify({"success": False, "error": "target is required"}), 400
+
+    def _run_masscan():
+        if not shutil.which('masscan'):
+            return {"success": False, "error": "masscan not installed"}
+        ports = params.get('ports', '1-1000')
+        rate = params.get('rate', 1000)
+        interface = params.get('interface', '')
+        banners = params.get('banners', False)
+        additional_args = params.get('additional_args', '')
+        cmd = ['masscan', target, f'-p{ports}', f'--rate={rate}']
+        if interface:
+            cmd.extend(['-e', interface])
+        if banners:
+            cmd.append('--banners')
+        if additional_args:
+            cmd.extend(additional_args.split())
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        return {"success": result.returncode == 0, "output": result.stdout, "error": result.stderr}
+
+    task_id = async_run(_run_masscan, f"masscan {target}")
+    return jsonify({"task_id": task_id, "status": "pending"}), 202
+
+
+@network_bp.route('/api/network/amass/async', methods=['POST'])
+def network_amass_async():
+    """Launch amass in background; returns task_id for polling."""
+    from core.async_runner import async_run
+    params = request.json or {}
+    domain = params.get('domain', '')
+    if not domain:
+        return jsonify({"success": False, "error": "domain is required"}), 400
+
+    def _run_amass():
+        if not shutil.which('amass'):
+            return {"success": False, "error": "amass not installed"}
+        mode = params.get('mode', 'enum')
+        passive = params.get('passive', True)
+        additional_args = params.get('additional_args', '')
+        cmd = ['amass', mode, '-d', domain]
+        if passive and mode == 'enum':
+            cmd.append('-passive')
+        if additional_args:
+            cmd.extend(additional_args.split())
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        return {"success": result.returncode == 0, "output": result.stdout, "error": result.stderr}
+
+    task_id = async_run(_run_amass, f"amass {domain}")
+    return jsonify({"task_id": task_id, "status": "pending"}), 202
+
+
+@network_bp.route('/api/network/subfinder/async', methods=['POST'])
+def network_subfinder_async():
+    """Launch subfinder in background; returns task_id for polling."""
+    from core.async_runner import async_run
+    params = request.json or {}
+    domain = params.get('domain', '')
+    if not domain:
+        return jsonify({"success": False, "error": "domain is required"}), 400
+
+    def _run_subfinder():
+        if not shutil.which('subfinder'):
+            return {"success": False, "error": "subfinder not installed"}
+        silent = params.get('silent', True)
+        all_sources = params.get('all_sources', False)
+        additional_args = params.get('additional_args', '')
+        cmd = ['subfinder', '-d', domain]
+        if silent:
+            cmd.append('-silent')
+        if all_sources:
+            cmd.append('-all')
+        if additional_args:
+            cmd.extend(additional_args.split())
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        return {"success": result.returncode == 0, "output": result.stdout, "error": result.stderr}
+
+    task_id = async_run(_run_subfinder, f"subfinder {domain}")
+    return jsonify({"task_id": task_id, "status": "pending"}), 202
