@@ -25,6 +25,7 @@ import hexstrike_mcp_tools.wireless
 import hexstrike_mcp_tools.osint
 import hexstrike_mcp_tools.workflows
 import hexstrike_mcp_tools.async_tools
+import hexstrike_mcp_tools.browser
 
 logger = logging.getLogger(__name__)
 
