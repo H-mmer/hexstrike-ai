@@ -13,6 +13,8 @@ import logging
 import time
 from typing import Any, Dict, Optional
 
+from agents.human_behaviour import HumanBehaviourMixin
+
 try:
     import undetected_chromedriver as uc
 except ImportError:
@@ -23,7 +25,7 @@ logger = logging.getLogger(__name__)
 _VALID_PRESETS = ("minimal", "standard", "paranoid")
 
 
-class StealthBrowserAgent:
+class StealthBrowserAgent(HumanBehaviourMixin):
     """Anti-detection browser agent powered by undetected-chromedriver."""
 
     def __init__(self, preset: str = "standard", headless: bool = True):

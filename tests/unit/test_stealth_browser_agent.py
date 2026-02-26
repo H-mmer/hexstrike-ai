@@ -66,3 +66,10 @@ def test_close_quits_driver(mock_uc):
     agent.close()
     driver_mock.quit.assert_called_once()
     assert agent.driver is None
+
+
+def test_standard_preset_has_human_behaviour(mock_uc):
+    from agents.stealth_browser_agent import StealthBrowserAgent
+    from agents.human_behaviour import HumanBehaviourMixin
+    agent = StealthBrowserAgent(preset="standard")
+    assert isinstance(agent, HumanBehaviourMixin)
