@@ -110,6 +110,64 @@ class StealthBrowserAgent(HumanBehaviourMixin):
             return {"success": False, "error": str(exc)}
 
     # ------------------------------------------------------------------
+    # Screenshot
+    # ------------------------------------------------------------------
+
+    def screenshot_stealth(self) -> Dict[str, Any]:
+        """Capture a screenshot and return it as a base64-encoded string."""
+        if not self.driver:
+            return {"success": False, "error": "driver not initialised"}
+        try:
+            b64 = self.driver.get_screenshot_as_base64()
+            return {"success": True, "screenshot_b64": b64}
+        except Exception as exc:
+            return {"success": False, "error": str(exc)}
+
+    # ------------------------------------------------------------------
+    # Form interaction
+    # ------------------------------------------------------------------
+
+    def form_fill_stealth(self, css_selector: str, value: str) -> Dict[str, Any]:
+        """Fill a form element located by *css_selector* with human-like typing."""
+        if not self.driver:
+            return {"success": False, "error": "driver not initialised"}
+        try:
+            from selenium.webdriver.common.by import By
+            element = self.driver.find_element(By.CSS_SELECTOR, css_selector)
+            element.clear()
+            self.type_with_delays(element, value)
+            return {"success": True, "selector": css_selector, "value_length": len(value)}
+        except Exception as exc:
+            return {"success": False, "error": str(exc)}
+
+    # ------------------------------------------------------------------
+    # DOM extraction
+    # ------------------------------------------------------------------
+
+    def extract_dom_stealth(self) -> Dict[str, Any]:
+        """Extract links, forms, and page source from the current page."""
+        if not self.driver:
+            return {"success": False, "error": "driver not initialised"}
+        try:
+            links = self.driver.execute_script(
+                "return Array.from(document.querySelectorAll('a')).map(a => a.href).slice(0, 50)"
+            )
+            forms = self.driver.execute_script(
+                "return Array.from(document.querySelectorAll('form')).length"
+            )
+            return {
+                "success": True,
+                "url": self.driver.current_url,
+                "title": self.driver.title,
+                "page_source": self.driver.page_source,
+                "link_count": len(links or []),
+                "links_sample": (links or [])[:10],
+                "form_count": forms or 0,
+            }
+        except Exception as exc:
+            return {"success": False, "error": str(exc)}
+
+    # ------------------------------------------------------------------
     # Cleanup
     # ------------------------------------------------------------------
 
