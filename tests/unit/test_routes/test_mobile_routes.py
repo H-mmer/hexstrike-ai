@@ -1,4 +1,6 @@
 """Unit tests for the mobile security tool routes Blueprint."""
+import sys
+import types
 import pytest
 from unittest.mock import patch, MagicMock
 from flask import Flask
@@ -13,17 +15,25 @@ def app():
     return a
 
 
+def _make_mock_module(**funcs):
+    """Create a mock module with the given function names returning mock results."""
+    mod = types.ModuleType('mock_module')
+    for name, return_value in funcs.items():
+        setattr(mod, name, MagicMock(return_value=return_value))
+    return mod
+
+
 def test_mobile_blueprint_registers(app):
     assert 'mobile' in app.blueprints
 
 
 def test_apk_analyze_route(app):
-    with patch('core.routes.mobile.apktool_decompile') as mock_apk, \
-         patch('core.routes.mobile.jadx_decompile') as mock_jadx, \
-         patch('core.routes.mobile.androguard_analyze') as mock_ag:
-        mock_apk.return_value = {'success': True, 'output': 'decompiled'}
-        mock_jadx.return_value = {'success': True, 'output': 'jadx'}
-        mock_ag.return_value = {'success': True, 'output': 'ag'}
+    mock_mod = _make_mock_module(
+        apktool_decompile={'success': True, 'output': 'decompiled'},
+        jadx_decompile={'success': True, 'output': 'jadx'},
+        androguard_analyze={'success': True, 'output': 'ag'},
+    )
+    with patch.dict(sys.modules, {'tools.mobile.apk_tools': mock_mod}):
         resp = app.test_client().post('/api/tools/mobile/apk-analyze',
                                       json={'apk_path': '/tmp/test.apk'})
     assert resp.status_code == 200
@@ -32,26 +42,31 @@ def test_apk_analyze_route(app):
 
 
 def test_ios_analyze_route(app):
-    with patch('core.routes.mobile.ipa_analyzer') as mock_ios, \
-         patch('core.routes.mobile.class_dump') as mock_cd:
-        mock_ios.return_value = {'success': True, 'info': {}}
-        mock_cd.return_value = {'success': True, 'output': ''}
+    mock_mod = _make_mock_module(
+        ipa_analyzer={'success': True, 'info': {}},
+        class_dump={'success': True, 'output': ''},
+    )
+    with patch.dict(sys.modules, {'tools.mobile.ios_tools': mock_mod}):
         resp = app.test_client().post('/api/tools/mobile/ios-analyze',
                                       json={'ipa_path': '/tmp/test.ipa'})
     assert resp.status_code == 200
 
 
 def test_mobile_drozer_route(app):
-    with patch('core.routes.mobile.drozer_scan') as mock_dz:
-        mock_dz.return_value = {'vulnerabilities': [], 'success': True}
+    mock_mod = _make_mock_module(
+        drozer_scan={'vulnerabilities': [], 'success': True},
+    )
+    with patch.dict(sys.modules, {'tools.mobile.mobile_exploit': mock_mod}):
         resp = app.test_client().post('/api/tools/mobile/drozer',
                                       json={'package': 'com.example.app'})
     assert resp.status_code == 200
 
 
 def test_mobile_mitm_route(app):
-    with patch('core.routes.mobile.setup_mitmproxy_mobile') as mock_mitm:
-        mock_mitm.return_value = {'traffic': [], 'success': True}
+    mock_mod = _make_mock_module(
+        setup_mitmproxy_mobile={'traffic': [], 'success': True},
+    )
+    with patch.dict(sys.modules, {'tools.mobile.mobile_network': mock_mod}):
         resp = app.test_client().post('/api/tools/mobile/mitm',
                                       json={'interface': 'wlan0'})
     assert resp.status_code == 200

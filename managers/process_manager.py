@@ -6,10 +6,13 @@ Extracted from monolithic hexstrike_server.py for modular architecture.
 """
 
 import logging
+import os
+import signal
 import subprocess
 import psutil
 import time
 import shutil
+import venv
 import zipfile
 from pathlib import Path
 from typing import Dict, Any, List, Optional
@@ -18,16 +21,97 @@ from datetime import datetime, timedelta
 import threading
 import queue
 
+from managers.resource_monitor import get_resource_monitor
+from managers.cache_manager import cache as _cache
+
 logger = logging.getLogger(__name__)
+
+
+class ProcessPool:
+    """Thread-pool for async command execution with CPU-aware sizing."""
+
+    def __init__(self, min_workers: int = 2, max_workers: int = 8):
+        self.min_workers = min_workers
+        self.max_workers = max_workers
+        self._active_workers = 0
+        self._task_queue: queue.Queue = queue.Queue()
+        self._results: Dict[str, Any] = {}
+        self._results_lock = threading.Lock()
+        self._workers: List[threading.Thread] = []
+
+        # Start initial worker threads
+        for _ in range(self.min_workers):
+            self._spawn_worker()
+
+    def _spawn_worker(self):
+        """Spawn a new worker thread."""
+        t = threading.Thread(target=self._worker_loop, daemon=True)
+        t.start()
+        self._workers.append(t)
+
+    def _worker_loop(self):
+        """Worker loop: pull tasks from queue and execute."""
+        while True:
+            try:
+                task_id, func, args, kwargs = self._task_queue.get(timeout=30)
+            except queue.Empty:
+                continue
+            try:
+                with self._results_lock:
+                    self._active_workers += 1
+                result = func(*args, **kwargs)
+                with self._results_lock:
+                    self._results[task_id] = {"status": "completed", "result": result}
+            except Exception as exc:
+                with self._results_lock:
+                    self._results[task_id] = {"status": "error", "error": str(exc)}
+            finally:
+                with self._results_lock:
+                    self._active_workers -= 1
+                self._task_queue.task_done()
+
+    def submit_task(self, task_id: str, func, *args, **kwargs):
+        """Submit a task for async execution."""
+        with self._results_lock:
+            self._results[task_id] = {"status": "pending"}
+        self._task_queue.put((task_id, func, args, kwargs))
+
+    def get_task_result(self, task_id: str) -> Dict[str, Any]:
+        """Return result dict for *task_id* (may still be pending)."""
+        with self._results_lock:
+            return self._results.get(task_id, {"status": "unknown"})
+
+    def get_pool_stats(self) -> Dict[str, Any]:
+        with self._results_lock:
+            active = self._active_workers
+        return {
+            "min_workers": self.min_workers,
+            "max_workers": self.max_workers,
+            "active_workers": active,
+            "total_workers": len(self._workers),
+            "queue_size": self._task_queue.qsize(),
+        }
+
+    # Auto-scaling helpers used by EnhancedProcessManager._auto_scale_based_on_resources
+    def _scale_up(self, count: int = 1):
+        for _ in range(count):
+            if len(self._workers) < self.max_workers:
+                self._spawn_worker()
+
+    def _scale_down(self, count: int = 1):  # pragma: no cover – best-effort
+        pass  # Daemon threads will idle-out; no forced teardown needed
 
 
 class EnhancedProcessManager:
     """Advanced process management with intelligent resource allocation"""
 
     def __init__(self):
-        self.process_pool = ProcessPool(min_workers=4, max_workers=32)
-        self.cache = AdvancedCache(max_size=2000, default_ttl=1800)  # 30 minutes default TTL
-        self.resource_monitor = ResourceMonitor()
+        _cpu = os.cpu_count() or 4
+        self.process_pool = ProcessPool(
+            min_workers=max(2, _cpu // 2),
+            max_workers=_cpu * 2,
+        )
+        self.resource_monitor = get_resource_monitor()
         self.process_registry = {}
         self.registry_lock = threading.RLock()
         self.performance_dashboard = PerformanceDashboard()
@@ -55,7 +139,7 @@ class EnhancedProcessManager:
 
         # Check cache first
         cache_key = f"cmd_result_{hash(command)}"
-        cached_result = self.cache.get(cache_key)
+        cached_result = _cache.get(cache_key)
         if cached_result and context and context.get("use_cache", True):
             logger.info(f"📋 Using cached result for command: {command[:50]}...")
             return cached_result
@@ -122,7 +206,7 @@ class EnhancedProcessManager:
             if result["success"] and context.get("cache_result", True):
                 cache_key = f"cmd_result_{hash(command)}"
                 cache_ttl = context.get("cache_ttl", 1800)  # 30 minutes default
-                self.cache.set(cache_key, result, cache_ttl)
+                _cache.set(cache_key, result, cache_ttl)
 
             # Update performance metrics
             self.performance_dashboard.record_execution(command, result)
@@ -228,93 +312,13 @@ class EnhancedProcessManager:
         """Get comprehensive system and process statistics"""
         return {
             "process_pool": self.process_pool.get_pool_stats(),
-            "cache": self.cache.get_stats(),
+            "cache": _cache.get_stats(),
             "resource_usage": self.resource_monitor.get_current_usage(),
             "active_processes": len(self.process_registry),
             "performance_dashboard": self.performance_dashboard.get_summary(),
             "auto_scaling_enabled": self.auto_scaling_enabled,
             "resource_thresholds": self.resource_thresholds
         }
-
-class ResourceMonitor:
-    """Advanced resource monitoring with historical tracking"""
-
-    def __init__(self, history_size=100):
-        self.history_size = history_size
-        self.usage_history = []
-        self.history_lock = threading.Lock()
-
-    def get_current_usage(self) -> Dict[str, float]:
-        """Get current system resource usage"""
-        try:
-            cpu_percent = psutil.cpu_percent(interval=1)
-            memory = psutil.virtual_memory()
-            disk = psutil.disk_usage('/')
-            network = psutil.net_io_counters()
-
-            usage = {
-                "cpu_percent": cpu_percent,
-                "memory_percent": memory.percent,
-                "memory_available_gb": memory.available / (1024**3),
-                "disk_percent": disk.percent,
-                "disk_free_gb": disk.free / (1024**3),
-                "network_bytes_sent": network.bytes_sent,
-                "network_bytes_recv": network.bytes_recv,
-                "timestamp": time.time()
-            }
-
-            # Add to history
-            with self.history_lock:
-                self.usage_history.append(usage)
-                if len(self.usage_history) > self.history_size:
-                    self.usage_history.pop(0)
-
-            return usage
-
-        except Exception as e:
-            logger.error(f"💥 Error getting resource usage: {str(e)}")
-            return {
-                "cpu_percent": 0,
-                "memory_percent": 0,
-                "memory_available_gb": 0,
-                "disk_percent": 0,
-                "disk_free_gb": 0,
-                "network_bytes_sent": 0,
-                "network_bytes_recv": 0,
-                "timestamp": time.time()
-            }
-
-    def get_process_usage(self, pid: int) -> Dict[str, Any]:
-        """Get resource usage for specific process"""
-        try:
-            process = psutil.Process(pid)
-            return {
-                "cpu_percent": process.cpu_percent(),
-                "memory_percent": process.memory_percent(),
-                "memory_rss_mb": process.memory_info().rss / (1024**2),
-                "num_threads": process.num_threads(),
-                "status": process.status()
-            }
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            return {}
-
-    def get_usage_trends(self) -> Dict[str, Any]:
-        """Get resource usage trends"""
-        with self.history_lock:
-            if len(self.usage_history) < 2:
-                return {}
-
-            recent = self.usage_history[-10:]  # Last 10 measurements
-
-            cpu_trend = sum(u["cpu_percent"] for u in recent) / len(recent)
-            memory_trend = sum(u["memory_percent"] for u in recent) / len(recent)
-
-            return {
-                "cpu_avg_10": cpu_trend,
-                "memory_avg_10": memory_trend,
-                "measurements": len(self.usage_history),
-                "trend_period_minutes": len(recent) * 15 / 60  # 15 second intervals
-            }
 
 class PerformanceDashboard:
     """Real-time performance monitoring dashboard"""
@@ -367,19 +371,8 @@ class PerformanceDashboard:
                 "system_metrics_count": len(self.system_metrics)
             }
 
-# Global instances
-tech_detector = TechnologyDetector()
-rate_limiter = RateLimitDetector()
-failure_recovery = FailureRecoverySystem()
-performance_monitor = PerformanceMonitor()
-parameter_optimizer = ParameterOptimizer()
+# Global singleton (lazy — instantiated at import time)
 enhanced_process_manager = EnhancedProcessManager()
-
-# Global CTF framework instances
-ctf_manager = CTFWorkflowManager()
-ctf_tools = CTFToolManager()
-ctf_automator = CTFChallengeAutomator()
-ctf_coordinator = CTFTeamCoordinator()
 
 # ============================================================================
 # PROCESS MANAGEMENT FOR COMMAND TERMINATION (v5.0 ENHANCEMENT)
@@ -503,22 +496,6 @@ class ProcessManager:
                 except Exception as e:
                     logger.error(f"💥 Error resuming process {pid}: {str(e)}")
             return False
-
-# Enhanced color codes and visual elements for modern terminal output
-# All color references consolidated to ModernVisualEngine.COLORS for consistency
-    BG_GREEN = '\033[42m'
-    BG_YELLOW = '\033[43m'
-    BG_BLUE = '\033[44m'
-    BG_MAGENTA = '\033[45m'
-    BG_CYAN = '\033[46m'
-    BG_WHITE = '\033[47m'
-
-    # Text effects
-    DIM = '\033[2m'
-    UNDERLINE = '\033[4m'
-    BLINK = '\033[5m'
-    REVERSE = '\033[7m'
-    STRIKETHROUGH = '\033[9m'
 
 class PythonEnvironmentManager:
     """Manage Python virtual environments and dependencies"""

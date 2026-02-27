@@ -34,7 +34,9 @@ def test_cache_stats_route(client):
 def test_cache_stats_contains_expected_keys(client):
     resp = client.get('/api/cache/stats')
     stats = resp.get_json()['stats']
-    for key in ('size', 'max_size', 'hits', 'misses', 'evictions', 'hit_rate'):
+    # DiskTieredCache exposes tiered metrics instead of old HexStrikeCache keys
+    for key in ('hits', 'misses', 'hit_rate', 'mem_size_mb', 'disk_size_mb',
+                'mem_item_count', 'disk_item_count'):
         assert key in stats, f"Missing key: {key}"
 
 
@@ -50,9 +52,8 @@ def test_cache_clear_resets_stats(client):
     client.post('/api/cache/clear')
     resp = client.get('/api/cache/stats')
     stats = resp.get_json()['stats']
-    assert stats['size'] == 0
-    assert stats['hits'] == 0
-    assert stats['misses'] == 0
+    assert stats['mem_item_count'] == 0
+    assert stats['disk_item_count'] == 0
 
 
 # ---------------------------------------------------------------------------

@@ -92,6 +92,8 @@ class HexStrikeCache:
                 "evictions": self.stats["evictions"]
             }
 
-# Global cache instance
-cache = HexStrikeCache()
+# Use DiskTieredCache as primary singleton (tiered: 256 MB mem + 512 MB disk)
+# HexStrikeCache kept above for backwards compatibility with existing tests.
+from managers.disk_cache import DiskTieredCache as _DiskTieredCache
+cache = _DiskTieredCache(mem_size_mb=256, disk_size_mb=512)
 

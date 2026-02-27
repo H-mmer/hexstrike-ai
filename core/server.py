@@ -51,6 +51,12 @@ def create_app():
     from core.routes.osint import osint_bp
     flask_app.register_blueprint(osint_bp)
 
+    from core.routes.tasks import tasks_bp
+    flask_app.register_blueprint(tasks_bp)
+
+    from core.routes.browser import browser_bp
+    flask_app.register_blueprint(browser_bp)
+
     return flask_app
 
 

@@ -10,16 +10,19 @@ HexStrike AI is an AI-powered penetration testing MCP (Model Context Protocol) f
 1. **hexstrike_server.py** - Thin entry point (~38 lines); imports and starts the Flask app from `core/server.py`
 2. **hexstrike_mcp.py** - Thin MCP launcher (~48 lines); imports and runs tools from `hexstrike_mcp_tools/`
 3. **Modular architecture** - agents/, managers/, tools/, core/, utils/ directories (Phase 1-3)
-4. **core/routes/** - 12 Flask Blueprints (Phase 1-3 Gap Closure - COMPLETE)
+4. **core/routes/** - 14 Flask Blueprints (Phase 1-3 + Phase 5 additions)
 5. **hexstrike_mcp_tools/** - Organized MCP tool modules, one per security category (Phase 1-3 Gap Closure - COMPLETE)
 6. **Installation system** - scripts/installer/ with automated tool installation (Phase 4 - COMPLETE, 22/22 tasks)
+7. **Performance & stealth** - DiskTieredCache, lazy imports, async scans, StealthBrowserAgent (Phase 5 - COMPLETE, 54 tasks)
 
 ## Prerequisites
 
 - **Python 3.8+** (required)
-- **Chrome/Chromium browser** (required for BrowserAgent)
+- **Chrome/Chromium browser** (required for BrowserAgent and StealthBrowserAgent)
 - **External security tools** (150+ tools - see Installation section)
 - **bcrypt 4.0.1** - Pinned version for pwntools compatibility (specified in requirements.txt)
+- **undetected-chromedriver** - Anti-detection Chrome driver for StealthBrowserAgent
+- **diskcache** - On-disk cache backend for DiskTieredCache
 
 ## Development Commands
 
@@ -91,21 +94,25 @@ curl http://localhost:8888/api/processes/list
 The codebase has been refactored from monolithic files into a clean modular structure:
 
 **Core Components (`core/`):**
-- `server.py` - Flask application factory and main application logic
+- `server.py` - Flask application factory; registers 14 Blueprints
 - `constants.py` - Shared constants and configuration values
-- `core/routes/` - 12 Flask Blueprints, one per security domain:
+- `task_store.py` - TaskStore: in-memory async task tracking with status transitions (Phase 5)
+- `async_runner.py` - `async_run()`: ThreadPoolExecutor wrapper for non-blocking tool execution (Phase 5)
+- `core/routes/` - 14 Flask Blueprints, one per security domain:
   - `system.py` — health, telemetry, cache, processes, command
-  - `network.py` — nmap, rustscan, masscan, amass, subfinder, httpx, waybackurls, gau, dnsenum, enum4linux, smbmap, netexec, wafw00f, naabu, snmp, zmap, advanced recon
-  - `web.py` — gobuster, nuclei, nikto, sqlmap, ffuf, feroxbuster, wpscan, dalfox, dirsearch, wfuzz, katana, arjun, paramspider, js-analysis, injection, cms-scan, auth-test, cdn-bypass
-  - `cloud.py` — trivy, prowler, kube-hunter, kube-bench, docker-bench, scout-suite, cloudmapper, pacu, falco, checkov, terrascan, kubescape, container-escape, rbac-audit
-  - `binary.py` — gdb, radare2, ghidra, binwalk, checksec, strings, objdump, ropgadget, volatility3, foremost, steghide, exiftool, msfvenom, angr, rizin, yara, floss, forensics
+  - `network.py` — nmap, rustscan, masscan, amass, subfinder, httpx, waybackurls, gau, dnsenum, enum4linux, smbmap, netexec, wafw00f, naabu, snmp, zmap, advanced recon + async variants
+  - `web.py` — gobuster, nuclei, nikto, sqlmap, ffuf, feroxbuster, wpscan, dalfox, dirsearch, wfuzz, katana, arjun, paramspider, js-analysis, injection, cms-scan, auth-test, cdn-bypass + async variants
+  - `cloud.py` — trivy, prowler, kube-hunter, kube-bench, docker-bench, scout-suite, cloudmapper, pacu, falco, checkov, terrascan, kubescape, container-escape, rbac-audit (lazy imports)
+  - `binary.py` — gdb, radare2, ghidra, binwalk, checksec, strings, objdump, ropgadget, volatility3, foremost, steghide, exiftool, msfvenom, angr, rizin, yara, floss, forensics (lazy imports)
   - `ctf.py` — CTF workflow endpoints
   - `bugbounty.py` — bug bounty workflow endpoints
   - `intelligence.py` — AI intelligence, vulnerability intel, CVE analysis
-  - `mobile.py` — APK analysis, iOS analysis, Drozer, MITM
-  - `api_security.py` — API discovery, fuzzing, auth testing, monitoring
-  - `wireless.py` — WiFi attack, Bluetooth scan, RF analysis
-  - `osint.py` — passive recon, threat intel, social recon, breach check, Shodan
+  - `mobile.py` — APK analysis, iOS analysis, Drozer, MITM (lazy imports)
+  - `api_security.py` — API discovery, fuzzing, auth testing, monitoring (lazy imports)
+  - `wireless.py` — WiFi attack, Bluetooth scan, RF analysis (lazy imports)
+  - `osint.py` — passive recon, threat intel, social recon, breach check, Shodan (lazy imports)
+  - `tasks.py` — async task submission, polling, listing, cancellation (Phase 5)
+  - `browser.py` — stealth browser navigate, screenshot, DOM extraction, form fill (Phase 5)
 
 **AI Agents (`agents/`):**
 - `decision_engine.py` - Intelligent tool selection and parameter optimization
@@ -114,11 +121,16 @@ The codebase has been refactored from monolithic files into a clean modular stru
 - `ctf_tools.py` - CTF-specific tool management
 - `cve_intelligence.py` - Vulnerability intelligence and exploit analysis
 - `browser_agent.py` - Headless Chrome automation with Selenium
+- `stealth_browser_agent.py` - Anti-detection browser with undetected-chromedriver (Phase 5)
+- `human_behaviour.py` - HumanBehaviourMixin: typing delays, smooth scroll, Bezier mouse (Phase 5)
+- `proxy_provider.py` - Round-robin proxy rotation interface (Phase 5)
 - `base.py` - Base classes for agent implementations
 
 **Managers (`managers/`):**
-- `process_manager.py` - Smart process control with real-time monitoring
-- `cache_manager.py` - LRU cache with TTL for expensive operations
+- `process_manager.py` - Smart process control with real-time monitoring (CPU-aware pool, Phase 5)
+- `cache_manager.py` - Tiered cache singleton backed by DiskTieredCache (Phase 5 migration)
+- `disk_cache.py` - DiskTieredCache: LRU memory + diskcache disk two-tier cache (Phase 5)
+- `resource_monitor.py` - ResourceMonitor singleton: RSS, CPU, disk metrics (Phase 5)
 - `file_manager.py` - File operations and artifact handling
 
 **Security Tools (`tools/`):**
@@ -148,6 +160,8 @@ The codebase has been refactored from monolithic files into a clean modular stru
 - `wireless.py` - Wireless security MCP tools
 - `osint.py` - OSINT MCP tools
 - `workflows.py` - CTF, bug bounty, and intelligence workflow MCP tools
+- `async_tools.py` - Async scan MCP tools: submit, poll, list, cancel (Phase 5)
+- `browser.py` - Stealth browser MCP tools: navigate, screenshot, DOM, form fill (Phase 5)
 
 **MCP Launcher:**
 - `hexstrike_mcp.py` - Thin launcher (~48 lines); imports all modules from `hexstrike_mcp_tools/` and starts FastMCP
@@ -161,7 +175,10 @@ The codebase has been refactored from monolithic files into a clean modular stru
 - `/api/command` - Execute arbitrary commands with caching
 - `/api/intelligence/*` - AI intelligence endpoints
 - `/api/processes/*` - Process management endpoints
-- `/api/cache/stats` - Cache performance metrics
+- `/api/cache/stats` - Cache performance metrics (tiered: memory + disk)
+- `/api/tasks/*` - Async task submission, polling, listing, cancellation (Phase 5)
+- `/api/browser/*` - Stealth browser navigate, screenshot, DOM, form fill (Phase 5)
+- `/api/<tool>/async` - Async scan variants for nmap, rustscan, masscan, amass, subfinder, gobuster, nuclei, feroxbuster (Phase 5)
 
 ### MCP Tool Registration Pattern
 
@@ -367,8 +384,12 @@ All API endpoints return JSON with this structure:
 **Web Automation**:
 - selenium - Browser automation
 - webdriver-manager - ChromeDriver management
+- undetected-chromedriver - Anti-detection Chrome driver (StealthBrowserAgent, Phase 5)
 - beautifulsoup4 - HTML parsing
 - aiohttp - Async HTTP client
+
+**Caching**:
+- diskcache - On-disk cache backend for DiskTieredCache (Phase 5)
 
 **Security Tools**:
 - pwntools - Binary exploitation framework
@@ -447,11 +468,13 @@ When adding new tools, follow the pattern in existing tool functions.
 
 ### Caching System
 
-The server implements an LRU cache with TTL:
+The server implements a two-tier cache via `DiskTieredCache` (Phase 5):
+- **Tier 1**: In-memory LRU cache (fast, bounded by `maxsize`)
+- **Tier 2**: On-disk `diskcache` backend (persistent across restarts)
 - Cache key: `hashlib.md5(command.encode()).hexdigest()`
 - Default TTL: varies by tool type
 - Manual cache invalidation available
-- Cache stats available at `/api/cache/stats`
+- Tiered cache stats available at `/api/cache/stats` (memory hits, disk hits, misses)
 
 Expensive operations (nmap, nuclei, etc.) are automatically cached.
 
@@ -470,6 +493,12 @@ Long-running tools use `EnhancedProcessManager`:
 - Uses webdriver-manager for driver management
 - Supports proxy integration (mitmproxy)
 - Captures screenshots, analyzes DOM, monitors network traffic
+
+`StealthBrowserAgent` (Phase 5) uses undetected-chromedriver for anti-detection:
+- Three presets: `minimal` (UC only), `standard` (UC + delays + scroll), `paranoid` (UC + full human simulation)
+- Inherits `HumanBehaviourMixin`: type_with_delays, smooth_scroll, bezier_mouse_move, random_pause
+- `ProxyProvider` stub for round-robin proxy rotation
+- Routes: `/api/browser/navigate`, `/api/browser/screenshot`, `/api/browser/dom`, `/api/browser/form-fill`
 
 ## Common Workflows
 
@@ -547,6 +576,14 @@ This file should be updated after major changes:
   - See docs/installation.md for the user-facing installation guide
   - See CHANGELOG.md for Phase 4 release notes
   - Update tool counts as registry expands beyond 105 tools
+- **Phase 5 (Performance, Memory & Stealth Browser) is 100% complete (54 tasks)**
+  - DiskTieredCache (memory LRU + diskcache), ResourceMonitor, lazy Blueprint imports
+  - TaskStore + async_run() + 8 async route variants + MCP async_tools
+  - StealthBrowserAgent (UC driver, 3 presets) + HumanBehaviourMixin + ProxyProvider stub
+  - Browser Blueprint (4 routes) + browser MCP tools (4 tools)
+  - 14 Flask Blueprints total (12 original + tasks + browser)
+  - Total tests: 607 passing
+  - See CHANGELOG.md for Phase 5 release notes
 
 ## IMPORTANT INSTRUCTIONS
 - Start all new Phases, Features, and/or Major changes by first understanding the requirements through brainstorming (use skill /brainstorming), then creating a detailed implementation plan (use skill /writing-plans).

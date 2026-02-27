@@ -4,6 +4,80 @@ All notable changes to HexStrike AI are documented here.
 
 ---
 
+## v7.0.0-dev — Phase 5: Performance, Memory Optimization & Stealth Browser
+
+**Branch:** `v7.0-dev`
+**Status:** Complete (54 tasks)
+
+### Summary
+
+Added tiered disk caching, lazy tool imports, async scan infrastructure,
+and a full stealth browser agent powered by undetected-chromedriver with
+human behaviour simulation. Total tests: 607 passing.
+
+### New Files
+
+**Managers:**
+- `managers/disk_cache.py` — DiskTieredCache: LRU (memory) + diskcache (disk) two-tier cache
+- `managers/resource_monitor.py` — ResourceMonitor singleton: RSS, CPU, disk metrics via psutil
+
+**Core:**
+- `core/lazy_import.py` — `lazy_import()` helper for deferred module loading in Blueprints
+- `core/task_store.py` — TaskStore: in-memory async task tracking (pending/running/done/failed)
+- `core/async_runner.py` — `async_run()`: ThreadPoolExecutor wrapper for non-blocking tool execution
+- `core/routes/tasks.py` — `/api/tasks` Blueprint: submit, poll, list, cancel async scans
+- `core/routes/browser.py` — `/api/browser` Blueprint: navigate, screenshot, DOM extraction, form fill
+
+**Agents:**
+- `agents/stealth_browser_agent.py` — StealthBrowserAgent: UC driver with 3 presets (minimal/standard/paranoid)
+- `agents/human_behaviour.py` — HumanBehaviourMixin: type_with_delays, smooth_scroll, bezier_mouse_move, random_pause
+- `agents/proxy_provider.py` — ProxyProvider stub: round-robin proxy rotation interface
+
+**MCP Tools:**
+- `hexstrike_mcp_tools/async_tools.py` — Async MCP tools: submit_async_scan, poll_task, list_tasks, cancel_task
+- `hexstrike_mcp_tools/browser.py` — Browser MCP tools: browser_navigate, browser_screenshot, browser_dom, browser_form_fill
+
+### Changed Files
+
+**Cache & Process:**
+- `managers/cache_manager.py` — Singleton migrated to DiskTieredCache backend; `/api/cache/stats` exposes tiered metrics
+- `managers/process_manager.py` — Removed duplicate cache; CPU-aware worker pool (os.cpu_count())
+- `managers/__init__.py` — Exports DiskTieredCache and ResourceMonitor
+
+**Lazy Import Migration (6 Blueprints):**
+- `core/routes/binary.py` — Lazy tool imports via `core.lazy_import`
+- `core/routes/api_security.py` — Lazy tool imports
+- `core/routes/mobile.py` — Lazy tool imports
+- `core/routes/wireless.py` — Lazy tool imports
+- `core/routes/cloud.py` — Lazy tool imports
+- `core/routes/osint.py` — Lazy tool imports
+
+**Async Route Variants (8 tools):**
+- `core/routes/network.py` — Added `/api/nmap/async`, `/api/rustscan/async`, `/api/masscan/async`, `/api/amass/async`, `/api/subfinder/async`
+- `core/routes/web.py` — Added `/api/gobuster/async`, `/api/nuclei/async`, `/api/feroxbuster/async`
+
+**Other:**
+- `core/server.py` — Registers 14 Blueprints (added tasks_bp, browser_bp)
+- `hexstrike_mcp.py` — Imports async_tools and browser MCP modules
+- `agents/__init__.py` — Exports StealthBrowserAgent, HumanBehaviourMixin, ProxyProvider
+- `requirements.txt` — Added `undetected-chromedriver>=3.5.0`, `diskcache>=5.6.0`
+
+### Performance Notes
+
+- **Lazy loading**: 6 Blueprints defer tool imports until first request; reduces startup RSS
+- **DiskTieredCache**: Two-tier caching (in-memory LRU + on-disk diskcache) for expensive scan results
+- **Async scans**: 8 tools support non-blocking execution via `/api/<tool>/async` + task polling
+- **Memory baseline**: RSS ~55.3 MB at startup (vs 51.2 MB pre-diskcache; delta from diskcache dependency)
+
+### Testing (607 tests)
+
+**New test files (32):**
+- Unit: test_disk_tiered_cache, test_resource_monitor, test_cache_manager_v2, test_lazy_import, test_task_store, test_async_runner, test_async_routes, test_tasks_routes, test_stealth_browser_agent, test_human_behaviour_mixin, test_proxy_provider, test_browser_routes, test_process_manager_fix, 5 lazy-import AST tests, test_async_mcp
+- Benchmarks: test_memory_baseline
+- Integration: test_stealth_browser_e2e (7 tests: navigate, screenshot, DOM, full pipeline, 3 error cases)
+
+---
+
 ## [v7.0.0-dev] - Phase 1-3 Gap Closure Complete
 
 ### Summary

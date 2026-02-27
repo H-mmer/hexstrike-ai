@@ -18,9 +18,9 @@ def test_osint_blueprint_registers(app):
 
 
 def test_passive_recon_route(app):
-    with patch('core.routes.osint.the_harvester') as mock_th, \
-         patch('core.routes.osint.whois_lookup') as mock_wh, \
-         patch('core.routes.osint.dnsdumpster_recon') as mock_dns:
+    with patch('tools.osint.passive_recon.the_harvester') as mock_th, \
+         patch('tools.osint.passive_recon.whois_lookup') as mock_wh, \
+         patch('tools.osint.passive_recon.dnsdumpster_recon') as mock_dns:
         mock_th.return_value = {'success': True, 'emails': [], 'hosts': []}
         mock_wh.return_value = {'success': True, 'output': ''}
         mock_dns.return_value = {'success': True, 'hosts': []}
@@ -37,8 +37,8 @@ def test_passive_recon_missing_domain(app):
 
 
 def test_threat_intel_route(app):
-    with patch('core.routes.osint.urlscan_lookup') as mock_us, \
-         patch('core.routes.osint.otx_lookup') as mock_otx:
+    with patch('tools.osint.threat_intel.urlscan_lookup') as mock_us, \
+         patch('tools.osint.threat_intel.otx_lookup') as mock_otx:
         mock_us.return_value = {'success': True, 'results': []}
         mock_otx.return_value = {'success': True, 'pulse_count': 0}
         resp = app.test_client().post('/api/osint/threat-intel',
@@ -52,7 +52,7 @@ def test_threat_intel_missing_ioc(app):
 
 
 def test_social_recon_route_with_username(app):
-    with patch('core.routes.osint.sherlock_search') as mock_sh:
+    with patch('tools.osint.social_intel.sherlock_search') as mock_sh:
         mock_sh.return_value = {'success': True, 'found_on': []}
         resp = app.test_client().post('/api/osint/social-recon',
                                       json={'username': 'testuser'})
@@ -60,7 +60,7 @@ def test_social_recon_route_with_username(app):
 
 
 def test_breach_check_route(app):
-    with patch('core.routes.osint.breach_lookup') as mock_bl:
+    with patch('tools.osint.social_intel.breach_lookup') as mock_bl:
         mock_bl.return_value = {'success': True, 'breached': False}
         resp = app.test_client().post('/api/osint/breach-check',
                                       json={'email': 'test@example.com'})
@@ -73,7 +73,7 @@ def test_breach_check_missing_email(app):
 
 
 def test_shodan_route(app):
-    with patch('core.routes.osint.shodan_search') as mock_sh:
+    with patch('tools.osint.passive_recon.shodan_search') as mock_sh:
         mock_sh.return_value = {'success': True, 'output': ''}
         resp = app.test_client().post('/api/osint/shodan',
                                       json={'query': 'nginx'})
@@ -81,7 +81,7 @@ def test_shodan_route(app):
 
 
 def test_cve_lookup_route(app):
-    with patch('core.routes.osint.shodan_cve_lookup') as mock_cve:
+    with patch('tools.osint.threat_intel.shodan_cve_lookup') as mock_cve:
         mock_cve.return_value = {'success': True, 'output': ''}
         resp = app.test_client().post('/api/osint/ioc-cve',
                                       json={'ip': '8.8.8.8'})

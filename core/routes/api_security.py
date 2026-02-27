@@ -6,73 +6,6 @@ from flask import Blueprint, request, jsonify
 logger = logging.getLogger(__name__)
 api_security_bp = Blueprint('api_security', __name__)
 
-# ---------------------------------------------------------------------------
-# Optional tool imports — api_discovery
-# ---------------------------------------------------------------------------
-
-try:
-    from tools.api.api_discovery import kiterunner_scan, swagger_scanner, graphql_cop_scan
-    _DISCOVERY_AVAILABLE = True
-except ImportError:
-    _DISCOVERY_AVAILABLE = False
-
-    def kiterunner_scan(target, **kwargs):
-        return {"success": False, "error": "api_discovery not available"}
-
-    def swagger_scanner(target, **kwargs):
-        return {"success": False, "error": "api_discovery not available"}
-
-    def graphql_cop_scan(target, **kwargs):
-        return {"success": False, "error": "api_discovery not available"}
-
-
-# ---------------------------------------------------------------------------
-# Optional tool imports — api_fuzzing
-# ---------------------------------------------------------------------------
-
-try:
-    from tools.api.api_fuzzing import rest_attacker
-    _FUZZING_AVAILABLE = True
-except ImportError:
-    _FUZZING_AVAILABLE = False
-
-    def rest_attacker(target, **kwargs):
-        return {"success": False, "error": "api_fuzzing not available"}
-
-
-# ---------------------------------------------------------------------------
-# Optional tool imports — api_auth
-# ---------------------------------------------------------------------------
-
-try:
-    from tools.api.api_auth import jwt_hack, oauth_scanner, api_key_brute
-    _AUTH_AVAILABLE = True
-except ImportError:
-    _AUTH_AVAILABLE = False
-
-    def jwt_hack(token, **kwargs):
-        return {"success": False, "error": "api_auth not available"}
-
-    def oauth_scanner(auth_endpoint, **kwargs):
-        return {"success": False, "error": "api_auth not available"}
-
-    def api_key_brute(target, **kwargs):
-        return {"success": False, "error": "api_auth not available"}
-
-
-# ---------------------------------------------------------------------------
-# Optional tool imports — api_monitoring
-# ---------------------------------------------------------------------------
-
-try:
-    from tools.api.api_monitoring import rate_limit_tester
-    _MONITORING_AVAILABLE = True
-except ImportError:
-    _MONITORING_AVAILABLE = False
-
-    def rate_limit_tester(target, **kwargs):
-        return {"success": False, "error": "api_monitoring not available"}
-
 
 # ---------------------------------------------------------------------------
 # API discovery
@@ -85,6 +18,10 @@ def api_discover():
     base_url = params.get('base_url', '')
     if not base_url:
         return jsonify({"success": False, "error": "base_url is required"}), 400
+    try:
+        from tools.api.api_discovery import kiterunner_scan, swagger_scanner, graphql_cop_scan
+    except ImportError:
+        return jsonify({"success": False, "error": "api_discovery not available"}), 503
     schema_url = params.get('schema_url', '')
     try:
         results = {
@@ -109,6 +46,10 @@ def api_fuzz():
     base_url = params.get('base_url', '')
     if not base_url:
         return jsonify({"success": False, "error": "base_url is required"}), 400
+    try:
+        from tools.api.api_fuzzing import rest_attacker
+    except ImportError:
+        return jsonify({"success": False, "error": "api_fuzzing not available"}), 503
     wordlist = params.get('wordlist', '')
     try:
         result = rest_attacker(base_url, payloads=wordlist if wordlist else None)
@@ -124,11 +65,15 @@ def api_fuzz():
 
 @api_security_bp.route('/api/tools/api/auth-test', methods=['POST'])
 def api_auth_test():
-    """API authentication vulnerability testing — JWT, OAuth, API keys."""
+    """API authentication vulnerability testing -- JWT, OAuth, API keys."""
     params = request.json or {}
     base_url = params.get('base_url', '')
     if not base_url:
         return jsonify({"success": False, "error": "base_url is required"}), 400
+    try:
+        from tools.api.api_auth import jwt_hack, oauth_scanner, api_key_brute
+    except ImportError:
+        return jsonify({"success": False, "error": "api_auth not available"}), 503
     jwt_token = params.get('jwt_token', '')
     try:
         results = {
@@ -153,6 +98,10 @@ def api_monitoring():
     base_url = params.get('base_url', '')
     if not base_url:
         return jsonify({"success": False, "error": "base_url is required"}), 400
+    try:
+        from tools.api.api_monitoring import rate_limit_tester
+    except ImportError:
+        return jsonify({"success": False, "error": "api_monitoring not available"}), 503
     try:
         result = rate_limit_tester(base_url)
         return jsonify({"success": True, "result": result})

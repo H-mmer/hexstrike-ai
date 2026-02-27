@@ -708,3 +708,93 @@ def cdn_bypass_route():
     except Exception as e:
         logger.error(f"cdn-bypass error: {e}")
         return jsonify({"success": False, "error": str(e), "output": ""}), 500
+
+
+# ===========================================================================
+# Async route variants — return HTTP 202 + task_id for background polling
+# ===========================================================================
+
+@web_bp.route('/api/web/nuclei/async', methods=['POST'])
+def web_nuclei_async():
+    """Launch nuclei in background; returns task_id for polling."""
+    from core.async_runner import async_run
+    params = request.json or {}
+    target = params.get('target', '')
+    if not target:
+        return jsonify({"success": False, "error": "target is required"}), 400
+
+    def _run_nuclei():
+        if not shutil.which('nuclei'):
+            return {"success": False, "error": "nuclei not installed"}
+        severity = params.get('severity', '')
+        templates = params.get('templates', '') or params.get('template', '')
+        tags = params.get('tags', '')
+        additional_args = params.get('additional_args', '')
+        cmd = ['nuclei', '-u', target, '-silent']
+        if severity:
+            cmd.extend(['-severity', severity])
+        if templates:
+            cmd.extend(['-t', templates])
+        if tags:
+            cmd.extend(['-tags', tags])
+        if additional_args:
+            cmd.extend(additional_args.split())
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        return {"success": result.returncode == 0, "output": result.stdout, "error": result.stderr}
+
+    task_id = async_run(_run_nuclei, f"nuclei {target}")
+    return jsonify({"task_id": task_id, "status": "pending"}), 202
+
+
+@web_bp.route('/api/web/gobuster/async', methods=['POST'])
+def web_gobuster_async():
+    """Launch gobuster in background; returns task_id for polling."""
+    from core.async_runner import async_run
+    params = request.json or {}
+    target = params.get('target', '') or params.get('url', '')
+    if not target:
+        return jsonify({"success": False, "error": "target is required"}), 400
+
+    def _run_gobuster():
+        if not shutil.which('gobuster'):
+            return {"success": False, "error": "gobuster not installed"}
+        mode = params.get('mode', 'dir')
+        wordlist = params.get('wordlist', '/usr/share/wordlists/dirb/common.txt')
+        extensions = params.get('extensions', '')
+        threads = params.get('threads', 10)
+        additional_args = params.get('additional_args', '')
+        cmd = ['gobuster', mode, '-u', target, '-w', wordlist, '-t', str(threads), '-q']
+        if extensions and mode == 'dir':
+            cmd.extend(['-x', extensions])
+        if additional_args:
+            cmd.extend(additional_args.split())
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        return {"success": result.returncode == 0, "output": result.stdout, "error": result.stderr}
+
+    task_id = async_run(_run_gobuster, f"gobuster {target}")
+    return jsonify({"task_id": task_id, "status": "pending"}), 202
+
+
+@web_bp.route('/api/web/feroxbuster/async', methods=['POST'])
+def web_feroxbuster_async():
+    """Launch feroxbuster in background; returns task_id for polling."""
+    from core.async_runner import async_run
+    params = request.json or {}
+    target = params.get('target', '') or params.get('url', '')
+    if not target:
+        return jsonify({"success": False, "error": "target is required"}), 400
+
+    def _run_feroxbuster():
+        if not shutil.which('feroxbuster'):
+            return {"success": False, "error": "feroxbuster not installed"}
+        wordlist = params.get('wordlist', '/usr/share/wordlists/dirb/common.txt')
+        threads = params.get('threads', 10)
+        additional_args = params.get('additional_args', '')
+        cmd = ['feroxbuster', '-u', target, '-w', wordlist, '-t', str(threads), '--silent']
+        if additional_args:
+            cmd.extend(additional_args.split())
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        return {"success": result.returncode == 0, "output": result.stdout, "error": result.stderr}
+
+    task_id = async_run(_run_feroxbuster, f"feroxbuster {target}")
+    return jsonify({"task_id": task_id, "status": "pending"}), 202
