@@ -57,6 +57,10 @@ def create_app():
     from core.routes.browser import browser_bp
     flask_app.register_blueprint(browser_bp)
 
+    # --- Middleware ---
+    from core.auth import register_auth
+    register_auth(flask_app)
+
     return flask_app
 
 
