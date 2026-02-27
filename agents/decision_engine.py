@@ -6,6 +6,8 @@ Extracted from monolithic hexstrike_server.py for modular architecture.
 """
 
 import re
+import socket
+import urllib.parse
 from typing import Dict, Any, List, Optional, Tuple
 from agents.base import TargetType, TechnologyStack, TargetProfile, AttackStep, AttackChain
 import logging
@@ -19,7 +21,6 @@ class IntelligentDecisionEngine:
         self.tool_effectiveness = self._initialize_tool_effectiveness()
         self.technology_signatures = self._initialize_technology_signatures()
         self.attack_patterns = self._initialize_attack_patterns()
-        self._use_advanced_optimizer = True  # Enable advanced optimization by default
 
     def _initialize_tool_effectiveness(self) -> Dict[str, Dict[str, float]]:
         """Initialize tool effectiveness ratings for different target types"""
@@ -444,18 +445,10 @@ class IntelligentDecisionEngine:
         return selected_tools
 
     def optimize_parameters(self, tool: str, profile: TargetProfile, context: Dict[str, Any] = None) -> Dict[str, Any]:
-        """Enhanced parameter optimization with advanced intelligence"""
+        """Parameter optimization per tool."""
         if context is None:
             context = {}
 
-        # Use advanced parameter optimizer if available (server context only)
-        if hasattr(self, '_use_advanced_optimizer') and self._use_advanced_optimizer:
-            try:
-                return parameter_optimizer.optimize_parameters_advanced(tool, profile, context)
-            except NameError:
-                pass  # parameter_optimizer not available; fall through to legacy optimization
-
-        # Fallback to legacy optimization for compatibility
         optimized_params = {}
 
         # Tool-specific parameter optimization
@@ -500,22 +493,9 @@ class IntelligentDecisionEngine:
         elif tool == "checkov":
             optimized_params = self._optimize_checkov_params(profile, context)
         else:
-            # Use advanced optimizer for unknown tools (only if available as server global)
-            try:
-                return parameter_optimizer.optimize_parameters_advanced(tool, profile, context)
-            except NameError:
-                # parameter_optimizer not available outside hexstrike_server context
-                optimized_params = {"tool": tool, "note": "default parameters"}
+            optimized_params = {"tool": tool, "note": "default parameters"}
 
         return optimized_params
-
-    def enable_advanced_optimization(self):
-        """Enable advanced parameter optimization"""
-        self._use_advanced_optimizer = True
-
-    def disable_advanced_optimization(self):
-        """Disable advanced parameter optimization (use legacy)"""
-        self._use_advanced_optimizer = False
 
     def _optimize_nmap_params(self, profile: TargetProfile, context: Dict[str, Any]) -> Dict[str, Any]:
         """Optimize Nmap parameters"""

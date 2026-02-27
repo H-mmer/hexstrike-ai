@@ -7,9 +7,11 @@ Extracted from monolithic hexstrike_server.py for modular architecture.
 """
 
 from typing import Dict, Any, List
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 import requests
+
+from utils.visual_engine import ModernVisualEngine
 
 logger = logging.getLogger(__name__)
 

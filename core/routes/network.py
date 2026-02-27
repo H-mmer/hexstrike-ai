@@ -3,6 +3,7 @@ import subprocess
 import shutil
 from flask import Blueprint, request, jsonify
 import logging
+from core.validation import is_valid_target, is_valid_domain, sanitize_additional_args
 
 logger = logging.getLogger(__name__)
 network_bp = Blueprint('network', __name__)
@@ -38,11 +39,16 @@ def nmap():
     target = params.get('target', '')
     if not target:
         return jsonify({"success": False, "error": "target is required"}), 400
+    if not is_valid_target(target):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     if not shutil.which('nmap'):
         return _tool_not_found('nmap')
     scan_type = params.get('scan_type', '-sCV')
     ports = params.get('ports', '')
     additional_args = params.get('additional_args', '-T4 -Pn')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['nmap']
     cmd.extend(scan_type.split())
     if ports:
@@ -70,17 +76,25 @@ def nmap_advanced():
     target = params.get('target', '')
     if not target:
         return jsonify({"success": False, "error": "target is required"}), 400
+    if not is_valid_target(target):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     if not shutil.which('nmap'):
         return _tool_not_found('nmap')
     scan_type = params.get('scan_type', '-sS')
     ports = params.get('ports', '')
     timing = params.get('timing', 'T4')
     nse_scripts = params.get('nse_scripts', '')
+    nse_scripts = sanitize_additional_args(nse_scripts)
+    if nse_scripts is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     os_detection = params.get('os_detection', False)
     version_detection = params.get('version_detection', False)
     aggressive = params.get('aggressive', False)
     stealth = params.get('stealth', False)
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['nmap']
     cmd.extend(scan_type.split())
     if ports:
@@ -122,6 +136,8 @@ def rustscan():
     target = params.get('target', '')
     if not target:
         return jsonify({"success": False, "error": "target is required"}), 400
+    if not is_valid_target(target):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     if not shutil.which('rustscan'):
         return _tool_not_found('rustscan')
     ports = params.get('ports', '')
@@ -129,6 +145,9 @@ def rustscan():
     batch_size = params.get('batch_size', 4500)
     scan_timeout = params.get('timeout', 1500)
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['rustscan', '-a', target, '--ulimit', str(ulimit), '-b', str(batch_size), '-t', str(scan_timeout)]
     if ports:
         cmd.extend(['-p', ports])
@@ -154,6 +173,8 @@ def masscan():
     target = params.get('target', '')
     if not target:
         return jsonify({"success": False, "error": "target is required"}), 400
+    if not is_valid_target(target):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     if not shutil.which('masscan'):
         return _tool_not_found('masscan')
     ports = params.get('ports', '1-1000')
@@ -161,6 +182,9 @@ def masscan():
     interface = params.get('interface', '')
     banners = params.get('banners', False)
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['masscan', target, f'-p{ports}', f'--rate={rate}']
     if interface:
         cmd.extend(['-e', interface])
@@ -188,11 +212,16 @@ def amass():
     domain = params.get('domain', '')
     if not domain:
         return jsonify({"success": False, "error": "domain is required"}), 400
+    if not is_valid_domain(domain):
+        return jsonify({"success": False, "error": "Invalid domain format"}), 400
     if not shutil.which('amass'):
         return _tool_not_found('amass')
     mode = params.get('mode', 'enum')
     passive = params.get('passive', True)
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['amass', mode, '-d', domain]
     if passive and mode == 'enum':
         cmd.append('-passive')
@@ -218,11 +247,16 @@ def subfinder():
     domain = params.get('domain', '')
     if not domain:
         return jsonify({"success": False, "error": "domain is required"}), 400
+    if not is_valid_domain(domain):
+        return jsonify({"success": False, "error": "Invalid domain format"}), 400
     if not shutil.which('subfinder'):
         return _tool_not_found('subfinder')
     silent = params.get('silent', True)
     all_sources = params.get('all_sources', False)
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['subfinder', '-d', domain]
     if silent:
         cmd.append('-silent')
@@ -250,6 +284,8 @@ def httpx():
     target = params.get('target', '')
     if not target:
         return jsonify({"success": False, "error": "target is required"}), 400
+    if not is_valid_target(target):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     if not shutil.which('httpx'):
         return _tool_not_found('httpx')
     threads = params.get('threads', 50)
@@ -258,6 +294,9 @@ def httpx():
     tech_detect = params.get('tech_detect', False)
     web_server = params.get('web_server', False)
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['httpx', '-silent', '-t', str(threads)]
     if status_code:
         cmd.append('-sc')
@@ -291,11 +330,16 @@ def waybackurls():
     domain = params.get('domain', '')
     if not domain:
         return jsonify({"success": False, "error": "domain is required"}), 400
+    if not is_valid_domain(domain):
+        return jsonify({"success": False, "error": "Invalid domain format"}), 400
     if not shutil.which('waybackurls'):
         return _tool_not_found('waybackurls')
     get_versions = params.get('get_versions', False)
     no_subs = params.get('no_subs', False)
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['waybackurls', domain]
     if get_versions:
         cmd.append('--get-versions')
@@ -323,12 +367,17 @@ def gau():
     domain = params.get('domain', '')
     if not domain:
         return jsonify({"success": False, "error": "domain is required"}), 400
+    if not is_valid_domain(domain):
+        return jsonify({"success": False, "error": "Invalid domain format"}), 400
     if not shutil.which('gau'):
         return _tool_not_found('gau')
     providers = params.get('providers', '')
     include_subs = params.get('include_subs', True)
     blacklist = params.get('blacklist', '')
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['gau', domain]
     if providers:
         cmd.extend(['--providers', providers])
@@ -358,11 +407,16 @@ def dnsenum():
     domain = params.get('domain', '')
     if not domain:
         return jsonify({"success": False, "error": "domain is required"}), 400
+    if not is_valid_domain(domain):
+        return jsonify({"success": False, "error": "Invalid domain format"}), 400
     if not shutil.which('dnsenum'):
         return _tool_not_found('dnsenum')
     dns_server = params.get('dns_server', '')
     wordlist = params.get('wordlist', '')
     additional_args = params.get('additional_args', '--noreverse')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['dnsenum', domain]
     if dns_server:
         cmd.extend(['--dnsserver', dns_server])
@@ -390,10 +444,15 @@ def fierce():
     domain = params.get('domain', '')
     if not domain:
         return jsonify({"success": False, "error": "domain is required"}), 400
+    if not is_valid_domain(domain):
+        return jsonify({"success": False, "error": "Invalid domain format"}), 400
     if not shutil.which('fierce'):
         return _tool_not_found('fierce')
     dns_server = params.get('dns_server', '')
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['fierce', '--domain', domain]
     if dns_server:
         cmd.extend(['--dns-servers', dns_server])
@@ -419,9 +478,14 @@ def wafw00f():
     target = params.get('target', '')
     if not target:
         return jsonify({"success": False, "error": "target is required"}), 400
+    if not is_valid_target(target):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     if not shutil.which('wafw00f'):
         return _tool_not_found('wafw00f')
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['wafw00f', target]
     if additional_args:
         cmd.extend(additional_args.split())
@@ -445,9 +509,14 @@ def enum4linux():
     target = params.get('target', '')
     if not target:
         return jsonify({"success": False, "error": "target is required"}), 400
+    if not is_valid_target(target):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     if not shutil.which('enum4linux'):
         return _tool_not_found('enum4linux')
     additional_args = params.get('additional_args', '-a')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['enum4linux']
     if additional_args:
         cmd.extend(additional_args.split())
@@ -472,12 +541,17 @@ def enum4linux_ng():
     target = params.get('target', '')
     if not target:
         return jsonify({"success": False, "error": "target is required"}), 400
+    if not is_valid_target(target):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     if not shutil.which('enum4linux-ng'):
         return _tool_not_found('enum4linux-ng')
     username = params.get('username', '')
     password = params.get('password', '')
     domain = params.get('domain', '')
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['enum4linux-ng', target]
     if username:
         cmd.extend(['-u', username])
@@ -507,12 +581,17 @@ def smbmap():
     host = params.get('host', '') or params.get('target', '')
     if not host:
         return jsonify({"success": False, "error": "host is required"}), 400
+    if not is_valid_target(host):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     if not shutil.which('smbmap'):
         return _tool_not_found('smbmap')
     username = params.get('username', '')
     password = params.get('password', '')
     domain = params.get('domain', '')
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['smbmap', '-H', host]
     if username:
         cmd.extend(['-u', username])
@@ -542,6 +621,8 @@ def netexec():
     target = params.get('target', '')
     if not target:
         return jsonify({"success": False, "error": "target is required"}), 400
+    if not is_valid_target(target):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     if not shutil.which('nxc'):
         return _tool_not_found('nxc')
     protocol = params.get('protocol', 'smb')
@@ -550,6 +631,9 @@ def netexec():
     hash_value = params.get('hash', '')
     module = params.get('module', '')
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['nxc', protocol, target]
     if username:
         cmd.extend(['-u', username])
@@ -581,11 +665,16 @@ def nbtscan():
     target = params.get('target', '')
     if not target:
         return jsonify({"success": False, "error": "target is required"}), 400
+    if not is_valid_target(target):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     if not shutil.which('nbtscan'):
         return _tool_not_found('nbtscan')
     verbose = params.get('verbose', False)
     scan_timeout = params.get('timeout', 2)
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['nbtscan', '-t', str(scan_timeout)]
     if verbose:
         cmd.append('-v')
@@ -612,12 +701,17 @@ def autorecon():
     target = params.get('target', '')
     if not target:
         return jsonify({"success": False, "error": "target is required"}), 400
+    if not is_valid_target(target):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     if not shutil.which('autorecon'):
         return _tool_not_found('autorecon')
     output_dir = params.get('output_dir', '/tmp/autorecon')
     heartbeat = params.get('heartbeat', 60)
     scan_timeout = params.get('timeout', 300)
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['autorecon', target, '-o', output_dir, '--heartbeat', str(heartbeat), '--timeout', str(scan_timeout)]
     if additional_args:
         cmd.extend(additional_args.split())
@@ -641,6 +735,8 @@ def scapy_packet_craft():
     target = params.get('target', '')
     if not target:
         return jsonify({"success": False, "error": "target is required"}), 400
+    if not is_valid_target(target):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     packet_type = params.get('packet_type', 'ICMP').upper()
     scapy_script = (
         f'from scapy.all import *\n'
@@ -680,11 +776,16 @@ def naabu_scan():
     target = params.get('target', '')
     if not target:
         return jsonify({"success": False, "error": "target is required"}), 400
+    if not is_valid_target(target):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     if not shutil.which('naabu'):
         return _tool_not_found('naabu')
     ports = params.get('ports', '1-65535')
     rate = params.get('rate', 1000)
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['naabu', '-host', target, '-p', ports, '-rate', str(rate), '-silent']
     if additional_args:
         cmd.extend(additional_args.split())
@@ -705,11 +806,16 @@ def zmap_scan():
     target_network = params.get('target_network', '')
     if not target_network:
         return jsonify({"success": False, "error": "target_network is required"}), 400
+    if not is_valid_target(target_network):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     if not shutil.which('zmap'):
         return _tool_not_found('zmap')
     port = params.get('port', 80)
     rate = params.get('rate', 10000)
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['zmap', '-p', str(port), '-r', str(rate), target_network]
     if additional_args:
         cmd.extend(additional_args.split())
@@ -737,10 +843,15 @@ def snmp_check():
     target = params.get('target', '')
     if not target:
         return jsonify({"success": False, "error": "target is required"}), 400
+    if not is_valid_target(target):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     if not shutil.which('snmp-check'):
         return _tool_not_found('snmp-check')
     community = params.get('community', 'public')
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['snmp-check', '-c', community, target]
     if additional_args:
         cmd.extend(additional_args.split())
@@ -776,11 +887,16 @@ def ipv6_toolkit():
     target = params.get('target', '')
     if not target:
         return jsonify({"success": False, "error": "target is required"}), 400
+    if not is_valid_target(target):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     scan_type = params.get('scan_type', 'alive6')
     tool_binary = scan_type if scan_type in ('alive6', 'dos-new-ip6', 'detect-new-ip6', 'fake_router6') else 'alive6'
     if not shutil.which(tool_binary):
         return _tool_not_found(tool_binary)
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = [tool_binary, target]
     if additional_args:
         cmd.extend(additional_args.split())
@@ -807,10 +923,15 @@ def udp_proto_scanner():
     target = params.get('target', '')
     if not target:
         return jsonify({"success": False, "error": "target is required"}), 400
+    if not is_valid_target(target):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     if not shutil.which('udp-proto-scanner'):
         return _tool_not_found('udp-proto-scanner')
     proto_list = params.get('proto_list', [53, 67, 68, 69, 123, 161, 162, 500, 514, 520, 1900, 5353])
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['udp-proto-scanner', target] + [str(p) for p in proto_list]
     if additional_args:
         cmd.extend(additional_args.split())
@@ -837,10 +958,15 @@ def cisco_torch():
     target = params.get('target', '')
     if not target:
         return jsonify({"success": False, "error": "target is required"}), 400
+    if not is_valid_target(target):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     if not shutil.which('cisco-torch'):
         return _tool_not_found('cisco-torch')
     scan_type = params.get('scan_type', 'all')
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     if scan_type == 'fingerprint':
         cmd = ['cisco-torch', '-f', target]
     elif scan_type == 'bruteforce':
@@ -877,6 +1003,8 @@ def network_nmap_async():
     target = params.get('target', '')
     if not target:
         return jsonify({"success": False, "error": "target is required"}), 400
+    if not is_valid_target(target):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
 
     def _run_nmap():
         if not shutil.which('nmap'):
@@ -906,6 +1034,8 @@ def network_rustscan_async():
     target = params.get('target', '')
     if not target:
         return jsonify({"success": False, "error": "target is required"}), 400
+    if not is_valid_target(target):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
 
     def _run_rustscan():
         if not shutil.which('rustscan'):
@@ -935,6 +1065,8 @@ def network_masscan_async():
     target = params.get('target', '')
     if not target:
         return jsonify({"success": False, "error": "target is required"}), 400
+    if not is_valid_target(target):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
 
     def _run_masscan():
         if not shutil.which('masscan'):
@@ -966,6 +1098,8 @@ def network_amass_async():
     domain = params.get('domain', '')
     if not domain:
         return jsonify({"success": False, "error": "domain is required"}), 400
+    if not is_valid_domain(domain):
+        return jsonify({"success": False, "error": "Invalid domain format"}), 400
 
     def _run_amass():
         if not shutil.which('amass'):
@@ -993,6 +1127,8 @@ def network_subfinder_async():
     domain = params.get('domain', '')
     if not domain:
         return jsonify({"success": False, "error": "domain is required"}), 400
+    if not is_valid_domain(domain):
+        return jsonify({"success": False, "error": "Invalid domain format"}), 400
 
     def _run_subfinder():
         if not shutil.which('subfinder'):

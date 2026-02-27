@@ -2,6 +2,7 @@
 import subprocess
 import shutil
 import logging
+# Cloud targets are image names/paths, not network targets — skip is_valid_target
 
 from flask import Blueprint, request, jsonify
 

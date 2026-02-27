@@ -2,6 +2,7 @@
 """HexStrike API client extracted from hexstrike_mcp.py."""
 
 import logging
+import os
 import time
 from typing import Dict, Any, Optional
 
@@ -29,6 +30,11 @@ class HexStrikeClient:
         self.server_url = server_url.rstrip("/")
         self.timeout = timeout
         self.session = requests.Session()
+
+        # Wire API key if configured
+        api_key = os.environ.get("HEXSTRIKE_API_KEY")
+        if api_key:
+            self.session.headers.update({"X-API-Key": api_key})
 
         # Try to connect to server with retries
         connected = False

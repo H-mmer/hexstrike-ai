@@ -1,9 +1,15 @@
 """AI intelligence, CVE/vuln-intel, and AI payload routes Blueprint."""
+import ipaddress
 import logging
 import re
+import shutil
+import socket
+import subprocess
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
+import requests as requests_lib
 from flask import Blueprint, request, jsonify
 
 logger = logging.getLogger(__name__)
@@ -39,7 +45,6 @@ def _get_decision_engine():
         engine = IntelligentDecisionEngine()
         # Disable the advanced optimizer path which depends on the server-level
         # parameter_optimizer global that does not exist in the Blueprint context.
-        engine._use_advanced_optimizer = False
         _decision_engine = engine
     return _decision_engine
 
@@ -56,20 +61,41 @@ def _get_cve_intelligence():
 # ---------------------------------------------------------------------------
 
 class _SimpleExploitGenerator:
-    """Minimal exploit generator used when the full server class is not available."""
+    """Exploit lookup via searchsploit (exploitdb)."""
 
     def generate_exploit_from_cve(
         self, cve_data: Dict[str, Any], target_info: Dict[str, Any]
     ) -> Dict[str, Any]:
-        cve_id = cve_data.get("cve_id", "UNKNOWN")
-        exploit_type = target_info.get("exploit_type", "poc")
-        return {
-            "success": True,
-            "cve_id": cve_id,
-            "exploit_type": exploit_type,
-            "exploit_code": f"# Placeholder PoC for {cve_id}\n# Manual exploit development required.",
-            "disclaimer": "This is a placeholder. Actual exploit development requires manual analysis.",
-        }
+        cve_id = cve_data.get("cve_id", "")
+        if not cve_id:
+            return {"success": False, "error": "cve_id is required"}
+
+        if not shutil.which("searchsploit"):
+            return {"success": False, "error": "searchsploit not installed"}
+
+        try:
+            result = subprocess.run(
+                ["searchsploit", "--cve", cve_id, "--json"],
+                capture_output=True, text=True, timeout=30,
+            )
+            if result.returncode != 0:
+                return {"success": True, "exploits": [], "note": "No exploits found"}
+
+            import json as _json
+            data = _json.loads(result.stdout)
+            exploits = [
+                {
+                    "edb_id": e.get("EDB-ID", ""),
+                    "title": e.get("Title", ""),
+                    "path": e.get("Path", ""),
+                }
+                for e in data.get("RESULTS_EXPLOIT", [])
+            ]
+            return {"success": True, "exploits": exploits, "cve_id": cve_id}
+        except subprocess.TimeoutExpired:
+            return {"success": False, "error": "searchsploit timed out"}
+        except Exception as exc:
+            return {"success": False, "error": str(exc)}
 
 
 # ---------------------------------------------------------------------------
@@ -77,36 +103,44 @@ class _SimpleExploitGenerator:
 # ---------------------------------------------------------------------------
 
 class _SimpleVulnerabilityCorrelator:
-    """Minimal correlator used when the full server class is not available."""
+    """Correlator that uses CVEIntelligenceManager for real CVE data lookup."""
 
     def find_attack_chains(
         self, target_software: str, attack_depth: int = 3
     ) -> Dict[str, Any]:
-        return {
-            "success": True,
-            "target_software": target_software,
-            "attack_depth": attack_depth,
-            "attack_chains": [
-                {
-                    "chain_id": "CHAIN-001",
-                    "description": f"Simulated attack chain for {target_software}",
-                    "stages": [
-                        {
-                            "stage": 1,
-                            "description": "Initial access via known vulnerability",
-                            "vulnerability": {
-                                "cve_id": "",
-                                "description": f"Input validation flaw in {target_software}",
-                            },
-                            "impact": "Low",
-                        }
-                    ],
+        try:
+            cve_mgr = _get_cve_intelligence()
+        except Exception:
+            return {"success": False, "error": "CVE intelligence not available"}
+
+        try:
+            cves = cve_mgr.fetch_latest_cves(keyword=target_software, max_results=attack_depth)
+            chains = []
+            for i, cve in enumerate(cves if isinstance(cves, list) else cves.get("vulnerabilities", [])):
+                cve_id = cve.get("cve_id", cve.get("id", f"CVE-UNKNOWN-{i}"))
+                desc = cve.get("description", "No description available")
+                chains.append({
+                    "chain_id": f"CHAIN-{i + 1:03d}",
+                    "description": f"Attack chain via {cve_id}",
+                    "stages": [{
+                        "stage": 1,
+                        "description": desc[:200],
+                        "vulnerability": {"cve_id": cve_id, "description": desc[:200]},
+                        "impact": cve.get("severity", "MEDIUM"),
+                    }],
                     "total_stages": 1,
                     "success_probability": 0.5,
-                }
-            ],
-            "total_chains": 1,
-        }
+                })
+            return {
+                "success": True,
+                "target_software": target_software,
+                "attack_depth": attack_depth,
+                "attack_chains": chains,
+                "total_chains": len(chains),
+            }
+        except Exception as exc:
+            logger.error(f"Vulnerability correlator error: {exc}")
+            return {"success": False, "error": str(exc)}
 
 
 # ---------------------------------------------------------------------------
@@ -645,137 +679,6 @@ def threat_intelligence_feeds():
         return jsonify({"success": False, "error": f"Server error: {str(e)}"}), 500
 
 
-@intelligence_bp.route("/api/vuln-intel/zero-day-research", methods=["POST"])
-def zero_day_research():
-    """Automated zero-day vulnerability research using AI analysis."""
-    try:
-        params = request.json or {}
-        target_software = params.get("target_software", "")
-        analysis_depth = params.get("analysis_depth", "standard")
-        source_code_url = params.get("source_code_url", "")
-
-        if not target_software:
-            return jsonify({"success": False, "error": "Target software parameter is required"}), 400
-
-        logger.info(f"Starting zero-day research for {target_software} | Depth: {analysis_depth}")
-
-        research_results: Dict[str, Any] = {
-            "target_software": target_software,
-            "analysis_depth": analysis_depth,
-            "research_areas": [],
-            "potential_vulnerabilities": [],
-            "risk_assessment": {},
-            "recommendations": [],
-        }
-
-        common_areas = [
-            "Input validation vulnerabilities",
-            "Memory corruption issues",
-            "Authentication bypasses",
-            "Authorization flaws",
-            "Cryptographic weaknesses",
-            "Race conditions",
-            "Logic flaws",
-        ]
-        web_areas = [
-            "Cross-site scripting (XSS)",
-            "SQL injection",
-            "Server-side request forgery (SSRF)",
-            "Insecure deserialization",
-            "Template injection",
-        ]
-        system_areas = [
-            "Buffer overflows",
-            "Privilege escalation",
-            "Kernel vulnerabilities",
-            "Service exploitation",
-            "Configuration weaknesses",
-        ]
-
-        target_lower = target_software.lower()
-        if any(t in target_lower for t in ["apache", "nginx", "tomcat", "php", "node", "django"]):
-            research_results["research_areas"] = common_areas + web_areas
-        elif any(t in target_lower for t in ["windows", "linux", "kernel", "driver"]):
-            research_results["research_areas"] = common_areas + system_areas
-        else:
-            research_results["research_areas"] = common_areas
-
-        vuln_count = {"quick": 2, "standard": 4, "comprehensive": 6}.get(analysis_depth, 4)
-        areas = research_results["research_areas"]
-        for i in range(vuln_count):
-            research_results["potential_vulnerabilities"].append({
-                "id": f"RESEARCH-{target_software.upper()}-{i + 1:03d}",
-                "category": areas[i % len(areas)],
-                "severity": ["LOW", "MEDIUM", "HIGH", "CRITICAL"][i % 4],
-                "confidence": ["LOW", "MEDIUM", "HIGH"][i % 3],
-                "description": f"Potential {areas[i % len(areas)].lower()} in {target_software}",
-                "attack_vector": "To be determined through further analysis",
-                "impact": "To be assessed",
-                "proof_of_concept": "Research phase - PoC development needed",
-            })
-
-        high_risk_count = sum(
-            1 for v in research_results["potential_vulnerabilities"]
-            if v["severity"] in ["HIGH", "CRITICAL"]
-        )
-        total_vulns = len(research_results["potential_vulnerabilities"])
-
-        research_results["risk_assessment"] = {
-            "total_areas_analyzed": len(areas),
-            "potential_vulnerabilities_found": total_vulns,
-            "high_risk_findings": high_risk_count,
-            "risk_score": min((high_risk_count * 25 + (total_vulns - high_risk_count) * 10), 100),
-            "research_confidence": analysis_depth,
-        }
-
-        if high_risk_count > 0:
-            research_results["recommendations"] = [
-                "Prioritize security testing in identified high-risk areas",
-                "Conduct focused penetration testing",
-                "Implement additional security controls",
-                "Consider bug bounty program for target software",
-                "Perform code review in identified areas",
-            ]
-        else:
-            research_results["recommendations"] = [
-                "Continue standard security testing",
-                "Monitor for new vulnerability research",
-                "Implement defense-in-depth strategies",
-                "Regular security assessments recommended",
-            ]
-
-        if source_code_url:
-            research_results["source_code_analysis"] = {
-                "repository_url": source_code_url,
-                "analysis_status": "simulated",
-                "findings": [
-                    "Static analysis patterns identified",
-                    "Potential code quality issues detected",
-                    "Security-relevant functions located",
-                ],
-                "recommendation": "Manual code review recommended for identified areas",
-            }
-
-        result = {
-            "success": True,
-            "zero_day_research": research_results,
-            "disclaimer": (
-                "This is simulated research for demonstration. "
-                "Real zero-day research requires extensive manual analysis."
-            ),
-            "timestamp": datetime.now().isoformat(),
-        }
-
-        logger.info(
-            f"Zero-day research completed | Risk Score: {research_results['risk_assessment']['risk_score']}"
-        )
-        return jsonify(result)
-
-    except Exception as e:
-        logger.error(f"Error in zero-day research: {str(e)}")
-        return jsonify({"success": False, "error": f"Server error: {str(e)}"}), 500
-
-
 # ---------------------------------------------------------------------------
 # /api/ai/* routes
 # ---------------------------------------------------------------------------
@@ -807,39 +710,82 @@ def ai_generate_payload():
         return jsonify({"success": False, "error": f"Server error: {str(e)}"}), 500
 
 
+def _is_safe_url(url: str) -> bool:
+    """Resolve URL hostname and reject private/loopback/link-local/metadata IPs.
+
+    Accepted risk: DNS rebinding (resolve-then-request TOCTOU) is not mitigated.
+    This is a local pentesting tool behind API key auth, not a public web app.
+    """
+    parsed = urlparse(url)
+    hostname = parsed.hostname
+    if not hostname:
+        return False
+    try:
+        addrs = socket.getaddrinfo(hostname, parsed.port or 80)
+    except socket.gaierror:
+        return False
+    for family, _, _, _, sockaddr in addrs:
+        ip = ipaddress.ip_address(sockaddr[0])
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+            return False
+        # Block cloud metadata
+        if str(ip) == "169.254.169.254":
+            return False
+    return True
+
+
+_WAF_HEADERS = {"cf-ray", "x-waf", "x-sucuri-id", "x-cdn"}
+_WAF_SERVERS = {"cloudflare", "akamai", "imperva", "sucuri"}
+
+
 @intelligence_bp.route("/api/ai/test_payload", methods=["POST"])
 def ai_test_payload():
-    """Test generated payload against target with AI analysis."""
+    """Test generated payload against target with SSRF-safe real HTTP request."""
     try:
         params = request.json or {}
         payload = params.get("payload", "")
         target_url = params.get("target_url", "")
-        method = params.get("method", "GET")
+        method = params.get("method", "GET").upper()
 
         if not payload or not target_url:
             return jsonify({"success": False, "error": "Payload and target_url are required"}), 400
 
-        logger.info(f"Testing AI-generated payload against {target_url}")
+        # SSRF guard: block private/loopback/link-local/metadata IPs
+        if not _is_safe_url(target_url):
+            return jsonify({"success": False, "error": "Blocked: target resolves to private/reserved IP"}), 400
 
-        analysis = {
-            "payload_tested": payload,
-            "target_url": target_url,
-            "method": method,
-            "response_size": 0,
-            "success": False,
-            "potential_vulnerability": False,
-            "recommendations": [
-                "Analyze response for payload reflection",
-                "Check for error messages indicating vulnerability",
-                "Monitor application behavior changes",
-            ],
-        }
+        logger.info(f"Testing payload against {target_url} via {method}")
 
-        logger.info(f"Payload test completed")
+        # Send the real request
+        try:
+            if method == "GET":
+                resp = requests_lib.request(method, target_url, params={"q": payload},
+                                            timeout=10, allow_redirects=False)
+            else:
+                resp = requests_lib.request(method, target_url, data={"payload": payload},
+                                            timeout=10, allow_redirects=False)
+        except requests_lib.RequestException as exc:
+            return jsonify({"success": False, "error": f"Request failed: {str(exc)}"}), 502
+
+        body = resp.text[:2048]
+        reflection_detected = payload in body
+
+        # WAF detection
+        resp_headers = {k.lower(): v for k, v in resp.headers.items()}
+        waf_detected = bool(_WAF_HEADERS & set(resp_headers.keys()))
+        server = resp_headers.get("server", "").lower()
+        if any(w in server for w in _WAF_SERVERS):
+            waf_detected = True
+
         return jsonify({
             "success": True,
-            "test_result": {"success": False, "note": "Offline mode — no HTTP request made"},
-            "ai_analysis": analysis,
+            "test_result": {
+                "status_code": resp.status_code,
+                "reflection_detected": reflection_detected,
+                "waf_detected": waf_detected,
+                "response_size": len(resp.text),
+                "body_preview": body[:512],
+            },
             "timestamp": datetime.now().isoformat(),
         })
 

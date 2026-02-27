@@ -184,17 +184,6 @@ def threat_intelligence(indicators: str, timeframe: str = "30d") -> Dict[str, An
 
 
 @mcp.tool()
-def zero_day_research(target_software: str,
-                       analysis_depth: str = "standard") -> Dict[str, Any]:
-    """AI-assisted zero-day vulnerability research for a target software.
-    analysis_depth: quick|standard|comprehensive"""
-    return get_client().safe_post("api/vuln-intel/zero-day-research", {
-        "target_software": target_software,
-        "analysis_depth": analysis_depth,
-    })
-
-
-@mcp.tool()
 def ai_generate_payload(attack_type: str = "xss",
                          complexity: str = "basic",
                          technology: str = "") -> Dict[str, Any]:
@@ -217,3 +206,13 @@ def ai_advanced_payload(attack_type: str, evasion_level: str = "standard",
         "evasion_level": evasion_level,
         "target_context": target_context,
     })
+
+
+@mcp.tool()
+def optimize_tool_parameters(target: str, tool: str,
+                              context: Optional[str] = None) -> Dict[str, Any]:
+    """Optimize tool parameters based on target profile and context using AI analysis."""
+    payload = {"target": target, "tool": tool}
+    if context:
+        payload["context"] = context
+    return get_client().safe_post("api/intelligence/optimize-parameters", payload)

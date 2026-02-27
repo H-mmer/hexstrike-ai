@@ -1,5 +1,6 @@
 """OSINT and intelligence gathering routes."""
 import logging
+from core.validation import is_valid_target, is_valid_domain, sanitize_additional_args
 
 from flask import Blueprint, request, jsonify
 
@@ -15,6 +16,8 @@ def osint_passive_recon():
     domain = params.get('domain', '')
     if not domain:
         return jsonify({"success": False, "error": "domain is required"}), 400
+    if not is_valid_domain(domain):
+        return jsonify({"success": False, "error": "Invalid domain format"}), 400
     try:
         sources = params.get('sources', 'all')
         results = {

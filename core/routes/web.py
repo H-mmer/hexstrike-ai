@@ -3,6 +3,7 @@ import subprocess
 import shutil
 import socket
 import logging
+from core.validation import is_valid_target, is_valid_domain, sanitize_additional_args
 
 import requests
 from flask import Blueprint, request, jsonify
@@ -79,6 +80,8 @@ def gobuster():
     target = params.get('target', '') or params.get('url', '')
     if not target:
         return jsonify({"success": False, "error": "target is required"}), 400
+    if not is_valid_target(target):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     if not shutil.which('gobuster'):
         return _tool_not_found('gobuster')
     mode = params.get('mode', 'dir')
@@ -86,6 +89,9 @@ def gobuster():
     extensions = params.get('extensions', '')
     threads = params.get('threads', 10)
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['gobuster', mode, '-u', target, '-w', wordlist, '-t', str(threads), '-q']
     if extensions and mode == 'dir':
         cmd.extend(['-x', extensions])
@@ -111,12 +117,17 @@ def nuclei():
     target = params.get('target', '')
     if not target:
         return jsonify({"success": False, "error": "target is required"}), 400
+    if not is_valid_target(target):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     if not shutil.which('nuclei'):
         return _tool_not_found('nuclei')
     severity = params.get('severity', '')
     templates = params.get('templates', '') or params.get('template', '')
     tags = params.get('tags', '')
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['nuclei', '-u', target, '-silent']
     if severity:
         cmd.extend(['-severity', severity])
@@ -146,10 +157,15 @@ def nikto():
     target = params.get('target', '')
     if not target:
         return jsonify({"success": False, "error": "target is required"}), 400
+    if not is_valid_target(target):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     if not shutil.which('nikto'):
         return _tool_not_found('nikto')
     options = params.get('options', '')
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['nikto', '-h', target]
     if options:
         cmd.extend(options.split())
@@ -175,12 +191,17 @@ def sqlmap():
     url = params.get('url', '')
     if not url:
         return jsonify({"success": False, "error": "url is required"}), 400
+    if not is_valid_target(url):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     if not shutil.which('sqlmap'):
         return _tool_not_found('sqlmap')
     data = params.get('data', '')
     level = params.get('level', 1)
     risk = params.get('risk', 1)
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['sqlmap', '-u', url, '--batch', f'--level={level}', f'--risk={risk}']
     if data:
         cmd.extend(['--data', data])
@@ -206,11 +227,16 @@ def ffuf():
     url = params.get('url', '')
     if not url:
         return jsonify({"success": False, "error": "url is required"}), 400
+    if not is_valid_target(url):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     if not shutil.which('ffuf'):
         return _tool_not_found('ffuf')
     wordlist = params.get('wordlist', '/usr/share/wordlists/dirb/common.txt')
     match_codes = params.get('match_codes', '200,204,301,302,307,401,403')
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     # If FUZZ is not already in the URL, append /FUZZ for directory mode
     fuzz_url = url if 'FUZZ' in url else f'{url}/FUZZ'
     cmd = ['ffuf', '-u', fuzz_url, '-w', wordlist, '-mc', match_codes]
@@ -236,11 +262,16 @@ def feroxbuster():
     target = params.get('target', '') or params.get('url', '')
     if not target:
         return jsonify({"success": False, "error": "target is required"}), 400
+    if not is_valid_target(target):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     if not shutil.which('feroxbuster'):
         return _tool_not_found('feroxbuster')
     wordlist = params.get('wordlist', '/usr/share/wordlists/dirb/common.txt')
     threads = params.get('threads', 10)
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['feroxbuster', '-u', target, '-w', wordlist, '-t', str(threads), '--silent']
     if additional_args:
         cmd.extend(additional_args.split())
@@ -264,10 +295,15 @@ def wpscan():
     url = params.get('url', '')
     if not url:
         return jsonify({"success": False, "error": "url is required"}), 400
+    if not is_valid_target(url):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     if not shutil.which('wpscan'):
         return _tool_not_found('wpscan')
     enumerate = params.get('enumerate', 'vp,vt,u')
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['wpscan', '--url', url, '--enumerate', enumerate]
     if additional_args:
         cmd.extend(additional_args.split())
@@ -291,11 +327,16 @@ def dalfox():
     url = params.get('url', '')
     if not url:
         return jsonify({"success": False, "error": "url is required"}), 400
+    if not is_valid_target(url):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     if not shutil.which('dalfox'):
         return _tool_not_found('dalfox')
     mining_dom = params.get('mining_dom', True)
     mining_dict = params.get('mining_dict', True)
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['dalfox', 'url', url]
     if mining_dom:
         cmd.append('--mining-dom')
@@ -323,6 +364,8 @@ def dirsearch():
     url = params.get('url', '')
     if not url:
         return jsonify({"success": False, "error": "url is required"}), 400
+    if not is_valid_target(url):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     if not shutil.which('dirsearch'):
         return _tool_not_found('dirsearch')
     extensions = params.get('extensions', 'php,html,js,txt,xml,json')
@@ -330,6 +373,9 @@ def dirsearch():
     threads = params.get('threads', 30)
     recursive = params.get('recursive', False)
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['dirsearch', '-u', url, '-e', extensions, '-t', str(threads), '--quiet']
     if wordlist:
         cmd.extend(['-w', wordlist])
@@ -357,10 +403,15 @@ def wfuzz():
     url = params.get('url', '')
     if not url:
         return jsonify({"success": False, "error": "url is required"}), 400
+    if not is_valid_target(url):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     if not shutil.which('wfuzz'):
         return _tool_not_found('wfuzz')
     wordlist = params.get('wordlist', '/usr/share/wordlists/dirb/common.txt')
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['wfuzz', '-w', wordlist, url]
     if additional_args:
         cmd.extend(additional_args.split())
@@ -384,11 +435,16 @@ def katana():
     url = params.get('url', '')
     if not url:
         return jsonify({"success": False, "error": "url is required"}), 400
+    if not is_valid_target(url):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     if not shutil.which('katana'):
         return _tool_not_found('katana')
     depth = params.get('depth', 3)
     js_crawl = params.get('js_crawl', True)
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['katana', '-u', url, '-d', str(depth), '-silent']
     if js_crawl:
         cmd.append('-jc')
@@ -414,11 +470,16 @@ def arjun():
     url = params.get('url', '')
     if not url:
         return jsonify({"success": False, "error": "url is required"}), 400
+    if not is_valid_target(url):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     if not shutil.which('arjun'):
         return _tool_not_found('arjun')
     method = params.get('method', 'GET')
     threads = params.get('threads', 25)
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['arjun', '-u', url, '-m', method, '-t', str(threads)]
     if additional_args:
         cmd.extend(additional_args.split())
@@ -442,9 +503,14 @@ def paramspider():
     domain = params.get('domain', '')
     if not domain:
         return jsonify({"success": False, "error": "domain is required"}), 400
+    if not is_valid_domain(domain):
+        return jsonify({"success": False, "error": "Invalid domain format"}), 400
     if not shutil.which('paramspider'):
         return _tool_not_found('paramspider')
     additional_args = params.get('additional_args', '')
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
     cmd = ['paramspider', '-d', domain]
     if additional_args:
         cmd.extend(additional_args.split())
@@ -468,6 +534,8 @@ def js_analysis():
     url = params.get('url', '')
     if not url:
         return jsonify({"success": False, "error": "url is required"}), 400
+    if not is_valid_target(url):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     if _JS_ANALYSIS_AVAILABLE:
         try:
             retire_result = retire_js_scan(url)
@@ -518,6 +586,8 @@ def injection_test():
     url = params.get('url', '')
     if not url:
         return jsonify({"success": False, "error": "url is required"}), 400
+    if not is_valid_target(url):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     inject_type = params.get('type', 'nosql')
     if _INJECTION_AVAILABLE:
         try:
@@ -571,6 +641,8 @@ def cms_scan():
     url = params.get('url', '')
     if not url:
         return jsonify({"success": False, "error": "url is required"}), 400
+    if not is_valid_target(url):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     cms = params.get('cms', 'wordpress').lower()
     if cms == 'wordpress':
         if not shutil.which('wpscan'):
@@ -632,6 +704,8 @@ def auth_test():
     url = params.get('url', '')
     if not url:
         return jsonify({"success": False, "error": "url is required"}), 400
+    if not is_valid_target(url):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     if _AUTH_AVAILABLE:
         try:
             csrf_result = csrf_scanner(url)
@@ -675,6 +749,8 @@ def cdn_bypass_route():
     url = params.get('url', '')
     if not url:
         return jsonify({"success": False, "error": "url is required"}), 400
+    if not is_valid_target(url):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
     target_ip = params.get('target_ip', '')
     if _CDN_AVAILABLE:
         try:
@@ -722,6 +798,8 @@ def web_nuclei_async():
     target = params.get('target', '')
     if not target:
         return jsonify({"success": False, "error": "target is required"}), 400
+    if not is_valid_target(target):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
 
     def _run_nuclei():
         if not shutil.which('nuclei'):
@@ -754,6 +832,8 @@ def web_gobuster_async():
     target = params.get('target', '') or params.get('url', '')
     if not target:
         return jsonify({"success": False, "error": "target is required"}), 400
+    if not is_valid_target(target):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
 
     def _run_gobuster():
         if not shutil.which('gobuster'):
@@ -783,6 +863,8 @@ def web_feroxbuster_async():
     target = params.get('target', '') or params.get('url', '')
     if not target:
         return jsonify({"success": False, "error": "target is required"}), 400
+    if not is_valid_target(target):
+        return jsonify({"success": False, "error": "Invalid target format"}), 400
 
     def _run_feroxbuster():
         if not shutil.which('feroxbuster'):

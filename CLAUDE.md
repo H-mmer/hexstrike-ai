@@ -11,9 +11,10 @@ HexStrike AI is an AI-powered penetration testing MCP (Model Context Protocol) f
 2. **hexstrike_mcp.py** - Thin MCP launcher (~48 lines); imports and runs tools from `hexstrike_mcp_tools/`
 3. **Modular architecture** - agents/, managers/, tools/, core/, utils/ directories (Phase 1-3)
 4. **core/routes/** - 14 Flask Blueprints (Phase 1-3 + Phase 5 additions)
-5. **hexstrike_mcp_tools/** - Organized MCP tool modules, one per security category (Phase 1-3 Gap Closure - COMPLETE)
+5. **hexstrike_mcp_tools/** - Organized MCP tool modules, 114 MCP tools across 12 modules (Phase 1-3 Gap Closure + Phase 5b)
 6. **Installation system** - scripts/installer/ with automated tool installation (Phase 4 - COMPLETE, 22/22 tasks)
 7. **Performance & stealth** - DiskTieredCache, lazy imports, async scans, StealthBrowserAgent (Phase 5 - COMPLETE, 54 tasks)
+8. **Security hardening** - API key auth, rate limiting, input validation, SSRF protection (Phase 5b - COMPLETE, 28 tasks)
 
 ## Prerequisites
 
@@ -23,6 +24,7 @@ HexStrike AI is an AI-powered penetration testing MCP (Model Context Protocol) f
 - **bcrypt 4.0.1** - Pinned version for pwntools compatibility (specified in requirements.txt)
 - **undetected-chromedriver** - Anti-detection Chrome driver for StealthBrowserAgent
 - **diskcache** - On-disk cache backend for DiskTieredCache
+- **flask-limiter** - Rate limiting middleware for Flask (Phase 5b)
 
 ## Development Commands
 
@@ -94,8 +96,11 @@ curl http://localhost:8888/api/processes/list
 The codebase has been refactored from monolithic files into a clean modular structure:
 
 **Core Components (`core/`):**
-- `server.py` - Flask application factory; registers 14 Blueprints
+- `server.py` - Flask application factory; registers 14 Blueprints + auth + rate limiter
 - `constants.py` - Shared constants and configuration values
+- `auth.py` - API key authentication middleware (`@before_request`, `X-API-Key` header, dev-mode bypass) (Phase 5b)
+- `rate_limit.py` - Rate limiting via flask-limiter (60/min default, 10/min for `/api/command`, `/health` exempt) (Phase 5b)
+- `validation.py` - Shared input validation: `is_valid_target()`, `is_valid_domain()`, `sanitize_additional_args()` (Phase 5b)
 - `task_store.py` - TaskStore: in-memory async task tracking with status transitions (Phase 5)
 - `async_runner.py` - `async_run()`: ThreadPoolExecutor wrapper for non-blocking tool execution (Phase 5)
 - `core/routes/` - 14 Flask Blueprints, one per security domain:
@@ -584,6 +589,14 @@ This file should be updated after major changes:
   - 14 Flask Blueprints total (12 original + tasks + browser)
   - Total tests: 607 passing
   - See CHANGELOG.md for Phase 5 release notes
+- **Phase 5b (Gap Closure & Hardening) is 100% complete (28 tasks)**
+  - Security: API key auth (`core/auth.py`), rate limiting (`core/rate_limit.py`), input validation (`core/validation.py`)
+  - Stub replacements: real searchsploit, SSRF-safe payload tester, CVE-backed vuln correlator, ProxyProvider with round-robin
+  - Dead code cleanup: decision engine optimizer, file_manager truncation, init wiring, import fixes
+  - MCP expansion: 102 → 114 tools (+9 network, +2 system, +1 workflow)
+  - Removed: zero-day research stub endpoint
+  - Total tests: 689 passing
+  - See CHANGELOG.md for Phase 5b release notes
 
 ## IMPORTANT INSTRUCTIONS
 - Start all new Phases, Features, and/or Major changes by first understanding the requirements through brainstorming (use skill /brainstorming), then creating a detailed implementation plan (use skill /writing-plans).

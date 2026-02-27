@@ -353,19 +353,6 @@ def test_threat_feeds_success(intel_app):
     assert data.get('success') is True
 
 
-def test_zero_day_research_missing_software(intel_app):
-    resp = intel_app.test_client().post('/api/vuln-intel/zero-day-research', json={})
-    assert resp.status_code == 400
-
-
-def test_zero_day_research_success(intel_app):
-    resp = intel_app.test_client().post('/api/vuln-intel/zero-day-research',
-                                        json={'target_software': 'apache httpd'})
-    assert resp.status_code == 200
-    data = resp.get_json()
-    assert data.get('success') is True
-
-
 def test_ai_generate_payload_success(intel_app):
     resp = intel_app.test_client().post('/api/ai/generate_payload',
                                         json={'attack_type': 'xss'})
