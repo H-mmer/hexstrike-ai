@@ -11,8 +11,8 @@ HexStrike AI is an AI-powered penetration testing MCP (Model Context Protocol) f
 2. **hexstrike_mcp.py** - Thin MCP launcher (~48 lines); imports and runs tools from `hexstrike_mcp_tools/`
 3. **Modular architecture** - agents/, managers/, tools/, core/, utils/ directories (Phase 1-3)
 4. **core/routes/** - 14 Flask Blueprints (Phase 1-3 + Phase 5 additions)
-5. **hexstrike_mcp_tools/** - Organized MCP tool modules, 114 MCP tools across 12 modules (Phase 1-3 Gap Closure + Phase 5b)
-6. **Installation system** - scripts/installer/ with automated tool installation (Phase 4 - COMPLETE, 22/22 tasks)
+5. **hexstrike_mcp_tools/** - 22 grouped MCP tools (21 category + 1 discovery) via SmartToolRegistry (Phase 6), plus legacy tool modules
+6. **Installation system** - scripts/installer/ with automated tool installation, 149 tools in registry (Phase 4 + Phase 6 expansion)
 7. **Performance & stealth** - DiskTieredCache, lazy imports, async scans, StealthBrowserAgent (Phase 5 - COMPLETE, 54 tasks)
 8. **Security hardening** - API key auth, rate limiting, input validation, SSRF protection (Phase 5b - COMPLETE, 28 tasks)
 
@@ -155,21 +155,24 @@ The codebase has been refactored from monolithic files into a clean modular stru
 **MCP Tools (`hexstrike_mcp_tools/`):**
 - `__init__.py` - Package init and MCP app instantiation
 - `client.py` - HexStrikeClient wrapper (safe_post helper, shared state)
-- `system.py` - System/health/cache/process MCP tools
-- `network.py` - Network recon MCP tools
-- `web.py` - Web security MCP tools
-- `cloud.py` - Cloud security MCP tools
-- `binary.py` - Binary analysis MCP tools
-- `mobile.py` - Mobile security MCP tools
-- `api_security.py` - API security MCP tools
-- `wireless.py` - Wireless security MCP tools
-- `osint.py` - OSINT MCP tools
-- `workflows.py` - CTF, bug bounty, and intelligence workflow MCP tools
-- `async_tools.py` - Async scan MCP tools: submit, poll, list, cancel (Phase 5)
-- `browser.py` - Stealth browser MCP tools: navigate, screenshot, DOM, form fill (Phase 5)
+- `registry.py` - SmartToolRegistry: maps (category, tool_name) → (route, method, description) (Phase 6)
+- `tool_definitions.py` - `build_registry()`: populates SmartToolRegistry with 135 tool mappings across 21 categories (Phase 6)
+- `grouped.py` - 22 `@mcp.tool()` endpoints (21 grouped categories + 1 discovery) — replaces 114 individual tools (Phase 6)
+- `system.py` - System/health/cache/process tool functions (decorators removed, Phase 6)
+- `network.py` - Network recon tool functions (decorators removed, Phase 6)
+- `web.py` - Web security tool functions (decorators removed, Phase 6)
+- `cloud.py` - Cloud security tool functions (decorators removed, Phase 6)
+- `binary.py` - Binary analysis tool functions (decorators removed, Phase 6)
+- `mobile.py` - Mobile security tool functions (decorators removed, Phase 6)
+- `api_security.py` - API security tool functions (decorators removed, Phase 6)
+- `wireless.py` - Wireless security tool functions (decorators removed, Phase 6)
+- `osint.py` - OSINT tool functions (decorators removed, Phase 6)
+- `workflows.py` - CTF, bug bounty, and intelligence workflow tool functions (decorators removed, Phase 6)
+- `async_tools.py` - Async scan tool functions (decorators removed, Phase 6)
+- `browser.py` - Stealth browser tool functions (decorators removed, Phase 6)
 
 **MCP Launcher:**
-- `hexstrike_mcp.py` - Thin launcher (~48 lines); imports all modules from `hexstrike_mcp_tools/` and starts FastMCP
+- `hexstrike_mcp.py` - Thin launcher (~41 lines); imports only `hexstrike_mcp_tools.grouped` to register all 22 grouped tools
 
 **Server Entry Point:**
 - `hexstrike_server.py` - Thin entry point (~38 lines); imports `core/server.py` app factory and starts Flask
@@ -185,25 +188,33 @@ The codebase has been refactored from monolithic files into a clean modular stru
 - `/api/browser/*` - Stealth browser navigate, screenshot, DOM, form fill (Phase 5)
 - `/api/<tool>/async` - Async scan variants for nmap, rustscan, masscan, amass, subfinder, gobuster, nuclei, feroxbuster (Phase 5)
 
-### MCP Tool Registration Pattern
+### MCP Tool Registration Pattern (Phase 6 — Grouped)
 
-Tools are registered in the appropriate module under `hexstrike_mcp_tools/` (e.g., `hexstrike_mcp_tools/network.py`):
+All MCP tools are now registered via **grouped endpoints** in `hexstrike_mcp_tools/grouped.py`. Each grouped function dispatches to the correct Flask route via `SmartToolRegistry`:
 
 ```python
-from hexstrike_mcp_tools.client import get_client
+# hexstrike_mcp_tools/grouped.py
+from hexstrike_mcp_tools import mcp, get_client
+from hexstrike_mcp_tools.tool_definitions import build_registry
+
+_registry = build_registry()
 
 @mcp.tool()
-def tool_name(param1: str, param2: Optional[int] = None) -> str:
-    """Tool description for AI agent"""
-    return get_client().safe_post(
-        "/api/endpoint",
-        {"param1": param1, "param2": param2}
-    )
+def network_scan(tool: str, target: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Port scanning and network discovery.
+    tool: nmap|rustscan|masscan|naabu|zmap|nmap-advanced"""
+    p = dict(params or {})
+    p["target"] = target
+    route_info = _registry.get_route("network_scan", tool)
+    return get_client().safe_post(route_info["route"], p)
 ```
 
-All tools follow the pattern: import `get_client` from `hexstrike_mcp_tools.client` → `@mcp.tool()` decorator → docstring → `get_client().safe_post()` call.
-
-Each module is imported in `hexstrike_mcp.py` (the thin launcher) to register all tools at startup.
+**Key architecture:**
+- `SmartToolRegistry` in `registry.py` maps (category, tool_name) → (route, method, description)
+- `tool_definitions.py` populates the registry with 135 tool mappings across 21 categories
+- `grouped.py` registers 22 `@mcp.tool()` functions (21 category + 1 `list_available_tools` discovery)
+- Old individual modules (`network.py`, `web.py`, etc.) still have their functions but no `@mcp.tool()` decorators
+- `hexstrike_mcp.py` imports only `hexstrike_mcp_tools.grouped` to register all tools
 
 ### Installation Infrastructure (Phase 4 - COMPLETE)
 
@@ -597,6 +608,15 @@ This file should be updated after major changes:
   - Removed: zero-day research stub endpoint
   - Total tests: 689 passing
   - See CHANGELOG.md for Phase 5b release notes
+- **Phase 6 (MCP Grouping + Registry Expansion + CI/CD) is 100% complete (30 tasks)**
+  - SmartToolRegistry: maps (category, tool_name) → (route, method, description)
+  - 22 grouped MCP tools replacing 114 individual tools (21 category + 1 discovery)
+  - Tool definitions: 135 tool-to-route mappings across 21 categories
+  - Old MCP modules: @mcp.tool() decorators removed, functions kept for backward compat
+  - Registry expansion: 105 → 149 tools (+44 new across mobile, wireless, web, binary, cloud, network, forensics, OSINT)
+  - CI/CD: GitHub Actions pipeline (test, lint with ruff, security with bandit)
+  - Total tests: 756 passing
+  - See CHANGELOG.md for Phase 6 release notes
 
 ## IMPORTANT INSTRUCTIONS
 - Start all new Phases, Features, and/or Major changes by first understanding the requirements through brainstorming (use skill /brainstorming), then creating a detailed implementation plan (use skill /writing-plans).

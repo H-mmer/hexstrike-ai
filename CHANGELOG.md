@@ -4,6 +4,39 @@ All notable changes to HexStrike AI are documented here.
 
 ---
 
+## v7.0.0-dev — Phase 6: MCP Grouping + Registry Expansion + CI/CD
+
+**Branch:** `master`
+**Status:** Complete (30 tasks)
+
+### Summary
+
+Replaced 114 individual MCP tools with 22 @mcp.tool() endpoints (21 grouped
+categories + 1 discovery tool) via SmartToolRegistry. Expanded installer
+registry from 105 to 149 entries. Added GitHub Actions CI/CD pipeline with
+test, lint, and security scan jobs.
+
+### New Files
+- `hexstrike_mcp_tools/registry.py` — SmartToolRegistry class
+- `hexstrike_mcp_tools/tool_definitions.py` — 135 tool-to-route mappings across 21 categories
+- `hexstrike_mcp_tools/grouped.py` — 22 @mcp.tool() endpoints (21 grouped + 1 discovery)
+- `.github/workflows/ci.yml` — CI/CD pipeline (test, lint, security)
+- `ruff.toml` — Linter configuration
+- 8 new test files
+
+### Changed Files
+- `hexstrike_mcp.py` — Imports only `grouped` (was 12 modules)
+- 12 old MCP modules — @mcp.tool() decorators removed (functions kept for backward compat)
+- `scripts/installer/registry.yaml` — 105 → 149 tool entries (+44 new tools)
+
+### Key Metrics
+- MCP tools: 114 individual → 22 @mcp.tool() (21 grouped + 1 discovery)
+- Registry: 105 → 149 entries
+- Tests: 689 → 756
+- Installer modes: quick (28), standard (98), complete (149)
+
+---
+
 ## v7.0.0-dev — Phase 5b: Gap Closure & Hardening
 
 **Branch:** `v7.0-dev`
