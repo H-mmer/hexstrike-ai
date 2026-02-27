@@ -206,3 +206,13 @@ def ai_advanced_payload(attack_type: str, evasion_level: str = "standard",
         "evasion_level": evasion_level,
         "target_context": target_context,
     })
+
+
+@mcp.tool()
+def optimize_tool_parameters(target: str, tool: str,
+                              context: Optional[str] = None) -> Dict[str, Any]:
+    """Optimize tool parameters based on target profile and context using AI analysis."""
+    payload = {"target": target, "tool": tool}
+    if context:
+        payload["context"] = context
+    return get_client().safe_post("api/intelligence/optimize-parameters", payload)

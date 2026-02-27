@@ -118,3 +118,92 @@ def zmap_scan(target_range: str, port: int = 80, rate: int = 10000) -> Dict[str,
     return get_client().safe_post("api/tools/network/zmap", {
         "target": target_range, "port": port, "rate": rate
     })
+
+
+@mcp.tool()
+def nmap_advanced_scan(target: str, scan_type: str = "-sS", ports: str = "",
+                       timing: str = "T4", nse_scripts: str = "",
+                       os_detection: bool = False, version_detection: bool = False,
+                       aggressive: bool = False, stealth: bool = False) -> Dict[str, Any]:
+    """Advanced nmap scan with NSE scripts, timing, OS/version detection."""
+    return get_client().safe_post("api/tools/nmap-advanced", {
+        "target": target, "scan_type": scan_type, "ports": ports,
+        "timing": timing, "nse_scripts": nse_scripts,
+        "os_detection": os_detection, "version_detection": version_detection,
+        "aggressive": aggressive, "stealth": stealth,
+    })
+
+
+@mcp.tool()
+def fierce_scan(domain: str, dns_server: str = "",
+                additional_args: str = "") -> Dict[str, Any]:
+    """DNS reconnaissance using Fierce — subdomain brute-forcing and zone transfer detection."""
+    return get_client().safe_post("api/tools/fierce", {
+        "domain": domain, "dns_server": dns_server, "additional_args": additional_args,
+    })
+
+
+@mcp.tool()
+def autorecon_scan(target: str, output_dir: str = "/tmp/autorecon",
+                   heartbeat: int = 60, timeout: int = 300,
+                   additional_args: str = "") -> Dict[str, Any]:
+    """Comprehensive automated reconnaissance using AutoRecon."""
+    return get_client().safe_post("api/tools/autorecon", {
+        "target": target, "output_dir": output_dir, "heartbeat": heartbeat,
+        "timeout": timeout, "additional_args": additional_args,
+    })
+
+
+@mcp.tool()
+def nbtscan_scan(target: str, verbose: bool = False, timeout: int = 2,
+                 additional_args: str = "") -> Dict[str, Any]:
+    """NetBIOS name scanner — discover Windows hosts and their NetBIOS names."""
+    return get_client().safe_post("api/tools/nbtscan", {
+        "target": target, "verbose": verbose, "timeout": timeout,
+        "additional_args": additional_args,
+    })
+
+
+@mcp.tool()
+def scapy_probe(target: str, packet_type: str = "ICMP") -> Dict[str, Any]:
+    """Packet crafting and probing with Scapy. packet_type: ICMP|TCP|UDP"""
+    return get_client().safe_post("api/tools/network/scapy", {
+        "target": target, "packet_type": packet_type,
+    })
+
+
+@mcp.tool()
+def ipv6_scan(target: str, scan_type: str = "alive6",
+              additional_args: str = "") -> Dict[str, Any]:
+    """IPv6 security testing with ipv6toolkit. scan_type: alive6|dos-new-ip6|detect-new-ip6|fake_router6"""
+    return get_client().safe_post("api/tools/network/ipv6-toolkit", {
+        "target": target, "scan_type": scan_type, "additional_args": additional_args,
+    })
+
+
+@mcp.tool()
+def udp_proto_scan(target: str, proto_list: Optional[str] = None,
+                   additional_args: str = "") -> Dict[str, Any]:
+    """UDP protocol scanner — probe common UDP services."""
+    return get_client().safe_post("api/tools/network/udp-proto-scanner", {
+        "target": target, "proto_list": proto_list, "additional_args": additional_args,
+    })
+
+
+@mcp.tool()
+def cisco_torch_scan(target: str, scan_type: str = "all",
+                     additional_args: str = "") -> Dict[str, Any]:
+    """Cisco device security scanning with cisco-torch."""
+    return get_client().safe_post("api/tools/network/cisco-torch", {
+        "target": target, "scan_type": scan_type, "additional_args": additional_args,
+    })
+
+
+@mcp.tool()
+def enum4linux_ng_scan(target: str, username: str = "", password: str = "",
+                       domain: str = "", additional_args: str = "") -> Dict[str, Any]:
+    """Advanced SMB/Windows enumeration using enum4linux-ng."""
+    return get_client().safe_post("api/tools/enum4linux-ng", {
+        "target": target, "username": username, "password": password,
+        "domain": domain, "additional_args": additional_args,
+    })

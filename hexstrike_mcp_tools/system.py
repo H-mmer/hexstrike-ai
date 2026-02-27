@@ -26,3 +26,15 @@ def get_cache_stats() -> Dict[str, Any]:
 def list_processes() -> Dict[str, Any]:
     """List all running tool processes on the server."""
     return get_client().safe_get("api/processes/list")
+
+
+@mcp.tool()
+def get_telemetry() -> Dict[str, Any]:
+    """Get server telemetry — uptime, request count, error count."""
+    return get_client().safe_get("api/telemetry")
+
+
+@mcp.tool()
+def clear_cache() -> Dict[str, Any]:
+    """Clear all entries from the server cache."""
+    return get_client().safe_post("api/cache/clear", {})
