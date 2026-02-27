@@ -115,3 +115,28 @@ def test_api_auth_test_with_jwt(app):
     data = resp.get_json()
     assert data['success'] is True
     mock_mod.jwt_hack.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Module import failure tests (503 when tool module not available)
+# ---------------------------------------------------------------------------
+
+def test_api_discover_module_unavailable(app):
+    with patch.dict(sys.modules, {'tools.api.api_discovery': None}):
+        resp = app.test_client().post('/api/tools/api/discover',
+                                      json={'base_url': 'http://example.com'})
+    assert resp.status_code == 503
+
+
+def test_api_fuzz_module_unavailable(app):
+    with patch.dict(sys.modules, {'tools.api.api_fuzzing': None}):
+        resp = app.test_client().post('/api/tools/api/fuzz',
+                                      json={'base_url': 'http://example.com'})
+    assert resp.status_code == 503
+
+
+def test_api_monitoring_module_unavailable(app):
+    with patch.dict(sys.modules, {'tools.api.api_monitoring': None}):
+        resp = app.test_client().post('/api/tools/api/monitoring',
+                                      json={'base_url': 'http://example.com'})
+    assert resp.status_code == 503

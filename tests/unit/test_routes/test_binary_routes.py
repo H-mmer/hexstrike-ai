@@ -153,3 +153,83 @@ def test_binary_forensics_route_exists(app):
                                       json={'image_path': '/tmp/disk.img'})
     assert resp.status_code == 200
     assert 'success' in resp.get_json()
+
+
+# ---------------------------------------------------------------------------
+# msfvenom
+# ---------------------------------------------------------------------------
+
+def test_msfvenom_route_missing_payload(app):
+    resp = app.test_client().post('/api/tools/msfvenom', json={})
+    assert resp.status_code == 400
+
+
+def test_msfvenom_route_exists(app):
+    with patch('core.routes.binary.subprocess.run') as mock_run, \
+         patch('core.routes.binary.shutil.which', return_value='/usr/bin/msfvenom'):
+        mock_run.return_value = MagicMock(stdout='', stderr='', returncode=0)
+        resp = app.test_client().post('/api/tools/msfvenom',
+                                      json={'payload': 'linux/x64/shell_reverse_tcp',
+                                            'format': 'elf'})
+    assert resp.status_code == 200
+    assert 'success' in resp.get_json()
+
+
+def test_msfvenom_route_tool_missing(app):
+    with patch('core.routes.binary.shutil.which', return_value=None):
+        resp = app.test_client().post('/api/tools/msfvenom',
+                                      json={'payload': 'linux/x64/shell_reverse_tcp'})
+    assert resp.status_code == 503
+
+
+# ---------------------------------------------------------------------------
+# steghide
+# ---------------------------------------------------------------------------
+
+def test_steghide_route_missing_cover_file(app):
+    resp = app.test_client().post('/api/tools/steghide', json={})
+    assert resp.status_code == 400
+
+
+def test_steghide_route_exists(app):
+    with patch('core.routes.binary.subprocess.run') as mock_run, \
+         patch('core.routes.binary.shutil.which', return_value='/usr/bin/steghide'):
+        mock_run.return_value = MagicMock(stdout='', stderr='', returncode=0)
+        resp = app.test_client().post('/api/tools/steghide',
+                                      json={'cover_file': '/tmp/image.jpg',
+                                            'action': 'extract'})
+    assert resp.status_code == 200
+    assert 'success' in resp.get_json()
+
+
+def test_steghide_route_tool_missing(app):
+    with patch('core.routes.binary.shutil.which', return_value=None):
+        resp = app.test_client().post('/api/tools/steghide',
+                                      json={'cover_file': '/tmp/image.jpg'})
+    assert resp.status_code == 503
+
+
+# ---------------------------------------------------------------------------
+# exiftool
+# ---------------------------------------------------------------------------
+
+def test_exiftool_route_missing_file(app):
+    resp = app.test_client().post('/api/tools/exiftool', json={})
+    assert resp.status_code == 400
+
+
+def test_exiftool_route_exists(app):
+    with patch('core.routes.binary.subprocess.run') as mock_run, \
+         patch('core.routes.binary.shutil.which', return_value='/usr/bin/exiftool'):
+        mock_run.return_value = MagicMock(stdout='[{}]', stderr='', returncode=0)
+        resp = app.test_client().post('/api/tools/exiftool',
+                                      json={'file_path': '/tmp/photo.jpg'})
+    assert resp.status_code == 200
+    assert 'success' in resp.get_json()
+
+
+def test_exiftool_route_tool_missing(app):
+    with patch('core.routes.binary.shutil.which', return_value=None):
+        resp = app.test_client().post('/api/tools/exiftool',
+                                      json={'file_path': '/tmp/photo.jpg'})
+    assert resp.status_code == 503
