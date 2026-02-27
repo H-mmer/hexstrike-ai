@@ -4,9 +4,11 @@
 
 **Goal:** Close critical security gaps (API auth, rate limiting, input validation), clean up stubs and dead code, fill MCP tool coverage holes, and add unit tests for untested agents.
 
-**Architecture:** Flask `@before_request` middleware for auth/rate limiting, `core/validation.py` for shared target validation, real subprocess calls replacing stub intelligence endpoints, 19 new MCP tool wrappers following existing `@mcp.tool()` + `safe_post()` pattern, and pytest unit tests with mocked externals.
+**Architecture:** Flask `@before_request` middleware for auth/rate limiting, `core/validation.py` for shared target/domain/args validation, SSRF-safe payload tester, real subprocess calls replacing stub intelligence endpoints, 12 new MCP tool wrappers following existing `@mcp.tool()` + `safe_post()` pattern, and pytest unit tests with mocked externals.
 
 **Tech Stack:** Flask, flask-limiter, pytest, requests (for payload tester), subprocess (for searchsploit)
+
+**Tasks:** 28 (originally 30; 2 removed after Codex review verified binary/cloud MCP tools already exist)
 
 ---
 
@@ -167,7 +169,8 @@ from core.server import create_app
 
 
 @pytest.fixture
-def app():
+def app(monkeypatch):
+    monkeypatch.delenv("HEXSTRIKE_API_KEY", raising=False)  # isolate from auth
     a = create_app()
     a.config["TESTING"] = True
     return a
@@ -222,10 +225,18 @@ def register_rate_limiter(app):
     )
 
     # Stricter limit on arbitrary command execution
-    limiter.limit("10/minute")(app.view_functions.get("system.run_command"))
+    cmd_view = app.view_functions.get("system.run_command")
+    if cmd_view is not None:
+        limiter.limit("10/minute")(cmd_view)
+    else:
+        logger.warning("system.run_command endpoint not found — skipping rate limit")
 
     # Exempt health endpoint
-    limiter.exempt(app.view_functions.get("system.health_check"))
+    health_view = app.view_functions.get("system.health_check")
+    if health_view is not None:
+        limiter.exempt(health_view)
+    else:
+        logger.warning("system.health_check endpoint not found — skipping exemption")
 
     logger.info("Rate limiter registered: 60/min default, 10/min for /api/command")
     return limiter
@@ -263,8 +274,10 @@ git commit -m "feat(auth): add rate limiting — 60/min default, 10/min for /api
 ```python
 # tests/unit/test_validation.py
 """Tests for target input validation."""
-from core.validation import is_valid_target
+from core.validation import is_valid_target, is_valid_domain, sanitize_additional_args
 
+
+# --- is_valid_target (IP / domain / CIDR / URL) ---
 
 def test_valid_ipv4():
     assert is_valid_target("192.168.1.1") is True
@@ -284,6 +297,10 @@ def test_valid_cidr():
 def test_valid_url():
     assert is_valid_target("https://example.com/path") is True
 
+def test_valid_url_with_query_params():
+    """URLs with & in query strings must pass (not rejected as shell metachars)."""
+    assert is_valid_target("https://example.com/page?a=1&b=2") is True
+
 def test_empty_string():
     assert is_valid_target("") is False
 
@@ -301,6 +318,42 @@ def test_shell_metachar_dollar():
 
 def test_newline_injection():
     assert is_valid_target("example.com\nid") is False
+
+
+# --- is_valid_domain (domain / subdomain only, no IP/CIDR) ---
+
+def test_domain_valid():
+    assert is_valid_domain("example.com") is True
+
+def test_domain_subdomain():
+    assert is_valid_domain("sub.example.com") is True
+
+def test_domain_rejects_ip():
+    assert is_valid_domain("192.168.1.1") is False
+
+def test_domain_rejects_shell():
+    assert is_valid_domain("example.com; id") is False
+
+def test_domain_rejects_empty():
+    assert is_valid_domain("") is False
+
+
+# --- sanitize_additional_args ---
+
+def test_sanitize_args_safe():
+    assert sanitize_additional_args("-p 80 --open") == "-p 80 --open"
+
+def test_sanitize_args_rejects_semicolon():
+    assert sanitize_additional_args("-p 80; rm -rf /") is None
+
+def test_sanitize_args_rejects_pipe():
+    assert sanitize_additional_args("-p 80 | cat /etc/passwd") is None
+
+def test_sanitize_args_rejects_backtick():
+    assert sanitize_additional_args("`whoami`") is None
+
+def test_sanitize_args_empty():
+    assert sanitize_additional_args("") == ""
 ```
 
 **Step 2: Run tests to verify they fail**
@@ -314,11 +367,18 @@ Expected: FAIL (module doesn't exist)
 
 ```python
 # core/validation.py
-"""Shared input validation for target parameters."""
+"""Shared input validation for target parameters.
+
+Provides validators for different field categories:
+- is_valid_target(): IPs, domains, CIDRs, URLs (for `target`, `host`, `target_network`)
+- is_valid_domain(): Domain/subdomain only (for `domain` params)
+- sanitize_additional_args(): Reject shell metacharacters in free-form args
+"""
 from __future__ import annotations
 
 import ipaddress
 import re
+from typing import Optional
 
 # Shell metacharacters that should never appear in a target string
 _SHELL_METACHARS = re.compile(r"[;|&`$\n\r]")
@@ -337,18 +397,22 @@ def is_valid_target(target: str) -> bool:
     """Return True if *target* looks like a valid IP, domain, CIDR, or URL.
 
     Rejects empty strings and strings containing shell metacharacters.
+    URLs are checked FIRST (before metachar rejection) because URL query
+    strings legitimately contain & and = which are shell metachars.
+    Use for: target, host, target_network, url params.
     """
     if not target or not target.strip():
         return False
 
     target = target.strip()
 
-    if _SHELL_METACHARS.search(target):
-        return False
-
-    # URL
+    # URL — check first because query params may contain & = etc.
     if _URL_RE.match(target):
         return True
+
+    # Non-URL targets: reject shell metacharacters
+    if _SHELL_METACHARS.search(target):
+        return False
 
     # CIDR
     if "/" in target:
@@ -370,12 +434,38 @@ def is_valid_target(target: str) -> bool:
         return True
 
     return False
+
+
+def is_valid_domain(domain: str) -> bool:
+    """Return True if *domain* is a valid domain/subdomain (no IPs, no CIDRs).
+
+    Use for: domain params in bugbounty, osint routes.
+    """
+    if not domain or not domain.strip():
+        return False
+    domain = domain.strip()
+    if _SHELL_METACHARS.search(domain):
+        return False
+    return bool(_DOMAIN_RE.match(domain))
+
+
+def sanitize_additional_args(args: str) -> Optional[str]:
+    """Return *args* if safe (no shell metacharacters), else None.
+
+    Use for: additional_args, flags, nse_scripts params.
+    Empty string is considered safe.
+    """
+    if not args:
+        return args  # "" or None pass through
+    if _SHELL_METACHARS.search(args):
+        return None
+    return args
 ```
 
 **Step 4: Run tests to verify all pass**
 
 Run: `pytest tests/unit/test_validation.py -v`
-Expected: 13 PASS
+Expected: 19 PASS
 
 **Step 5: Commit**
 
@@ -389,36 +479,52 @@ git commit -m "feat(auth): add target input validation utility (Phase 5b, Tasks 
 ### Task 7: Wire Validation Into Routes
 
 **Files:**
-- Modify: `core/routes/network.py` (add validation to routes that take `target`)
-- Modify: `core/routes/web.py` (same)
+- Modify: `core/routes/network.py` (validate `target`, `host`, `target_network`, `additional_args`)
+- Modify: `core/routes/web.py` (validate `target`, `url`, `domain`, `additional_args`)
+- Modify: `core/routes/cloud.py` (validate `target`)
+- Modify: `core/routes/osint.py` (validate `target`, `domain`)
 
-**Step 1: Add validation import and check to the first route handler in each Blueprint**
+**Step 1: Add validation imports**
 
-In `core/routes/network.py`, add near the top (after existing imports):
+In each Blueprint file, add near the top (after existing imports):
 ```python
-from core.validation import is_valid_target
+from core.validation import is_valid_target, is_valid_domain, sanitize_additional_args
 ```
 
-Then in each route handler that reads `target`, add after the empty-check:
+**Step 2: Wire validators by field type**
+
+For `target`, `host`, `target_network` params (IP/domain/CIDR/URL):
 ```python
     if not is_valid_target(target):
         return jsonify({"success": False, "error": "Invalid target format"}), 400
 ```
 
-Apply to: `network.py` and `web.py` route handlers that construct subprocess commands from `target`.
+For `domain` params (domain only, e.g. bugbounty/osint):
+```python
+    if not is_valid_domain(domain):
+        return jsonify({"success": False, "error": "Invalid domain format"}), 400
+```
 
-Do NOT apply to: intelligence routes (which take software names, not network targets), browser routes (which take URLs and already validate scheme).
+For `additional_args`, `flags`, `nse_scripts` params:
+```python
+    additional_args = sanitize_additional_args(additional_args)
+    if additional_args is None:
+        return jsonify({"success": False, "error": "Invalid characters in arguments"}), 400
+```
 
-**Step 2: Run full test suite**
+Apply to route handlers in: `network.py`, `web.py`, `cloud.py`, `osint.py`.
+Do NOT apply to: intelligence routes (software names), browser routes (already validate scheme).
+
+**Step 3: Run full test suite**
 
 Run: `pytest tests/ -q`
 Expected: All pass (existing route tests use valid targets like "192.168.1.1" and "example.com")
 
-**Step 3: Commit**
+**Step 4: Commit**
 
 ```bash
-git add core/routes/network.py core/routes/web.py
-git commit -m "feat(auth): wire target validation into network and web routes (Phase 5b, Task 7)"
+git add core/routes/network.py core/routes/web.py core/routes/cloud.py core/routes/osint.py
+git commit -m "feat(auth): wire target/domain/args validation into route handlers (Phase 5b, Task 7)"
 ```
 
 ---
@@ -507,13 +613,18 @@ git commit -m "feat(auth): wire API key header into MCP client session (Phase 5b
 
 ---
 
-## Batch B: Stubs & Dead Code Cleanup (Tasks 9–17)
+## Batch B: Stubs & Dead Code Cleanup (Tasks 9–18)
 
 ### Task 9: Exploit Generator — Real searchsploit
 
 **Files:**
 - Modify: `core/routes/intelligence.py:58-72` (replace `_SimpleExploitGenerator`)
 - Create: `tests/unit/test_routes/test_intelligence_routes.py`
+
+> **Note:** The real route is `/api/vuln-intel/exploit-generate` (intelligence.py:409).
+> The route wraps `_exploit_generator.generate_exploit_from_cve()` and nests its result
+> under `data["exploit_generation"]`, not top-level `data["exploits"]`.
+> We must also mock `_get_cve_intelligence()` since the route calls it first.
 
 **Step 1: Write the failing test**
 
@@ -527,7 +638,8 @@ from core.server import create_app
 
 
 @pytest.fixture
-def client():
+def client(monkeypatch):
+    monkeypatch.delenv("HEXSTRIKE_API_KEY", raising=False)
     app = create_app()
     app.config["TESTING"] = True
     with app.test_client() as c:
@@ -536,36 +648,63 @@ def client():
 
 class TestExploitGenerator:
     def test_exploit_lookup_with_searchsploit(self, client):
-        fake_output = json.dumps({
-            "RESULTS_EXPLOIT": [
-                {"Title": "Apache 2.4.49 - RCE", "EDB-ID": "50383", "Path": "/usr/share/exploitdb/exploits/linux/remote/50383.py"}
-            ]
-        })
-        with patch("core.routes.intelligence.subprocess") as mock_sub:
-            mock_sub.run.return_value = MagicMock(
-                returncode=0, stdout=fake_output, stderr=""
-            )
-            mock_sub.TimeoutExpired = TimeoutError
-            resp = client.post("/api/intelligence/generate-exploit", json={
-                "cve_data": {"cve_id": "CVE-2021-41773"},
-                "target_info": {"exploit_type": "poc"},
+        fake_searchsploit = {
+            "success": True,
+            "exploits": [
+                {"edb_id": "50383", "title": "Apache 2.4.49 - RCE", "path": "/exploits/50383.py"}
+            ],
+            "cve_id": "CVE-2021-41773",
+        }
+        fake_cve_analysis = {
+            "success": True,
+            "exploitability_level": "HIGH",
+            "exploitability_score": 9.0,
+        }
+        fake_existing = {"exploits": []}
+
+        with patch("core.routes.intelligence._get_cve_intelligence") as mock_cve, \
+             patch("core.routes.intelligence._exploit_generator") as mock_gen:
+            mock_cve_inst = MagicMock()
+            mock_cve_inst.analyze_cve_exploitability.return_value = fake_cve_analysis
+            mock_cve_inst.search_existing_exploits.return_value = fake_existing
+            mock_cve.return_value = mock_cve_inst
+
+            mock_gen.generate_exploit_from_cve.return_value = fake_searchsploit
+
+            resp = client.post("/api/vuln-intel/exploit-generate", json={
+                "cve_id": "CVE-2021-41773",
+                "exploit_type": "poc",
             })
             assert resp.status_code == 200
             data = resp.get_json()
             assert data["success"] is True
-            assert len(data["exploits"]) >= 1
-            assert "50383" in data["exploits"][0]["edb_id"]
+            # Response nests under "exploit_generation"
+            gen = data["exploit_generation"]
+            assert len(gen["exploits"]) >= 1
+            assert "50383" in gen["exploits"][0]["edb_id"]
 
     def test_exploit_lookup_searchsploit_missing(self, client):
-        with patch("core.routes.intelligence.shutil") as mock_shutil:
-            mock_shutil.which.return_value = None
-            resp = client.post("/api/intelligence/generate-exploit", json={
-                "cve_data": {"cve_id": "CVE-2021-41773"},
-                "target_info": {},
+        """When searchsploit is not installed, _exploit_generator returns error."""
+        fake_cve_analysis = {"success": True, "exploitability_level": "MEDIUM"}
+
+        with patch("core.routes.intelligence._get_cve_intelligence") as mock_cve, \
+             patch("core.routes.intelligence._exploit_generator") as mock_gen:
+            mock_cve_inst = MagicMock()
+            mock_cve_inst.analyze_cve_exploitability.return_value = fake_cve_analysis
+            mock_cve_inst.search_existing_exploits.return_value = {"exploits": []}
+            mock_cve.return_value = mock_cve_inst
+
+            mock_gen.generate_exploit_from_cve.return_value = {
+                "success": False, "error": "searchsploit not installed"
+            }
+
+            resp = client.post("/api/vuln-intel/exploit-generate", json={
+                "cve_id": "CVE-2021-41773",
             })
             data = resp.get_json()
-            assert data["success"] is False
-            assert "searchsploit" in data["error"]
+            assert data["success"] is True  # route still succeeds
+            assert data["exploit_generation"]["success"] is False
+            assert "searchsploit" in data["exploit_generation"]["error"]
 ```
 
 **Step 2: Replace `_SimpleExploitGenerator`**
@@ -628,24 +767,37 @@ git commit -m "feat(intel): wire searchsploit for real exploit lookup (Phase 5b,
 
 ---
 
-### Task 10: Payload Tester — Real HTTP Requests
+### Task 10: Payload Tester — Real HTTP Requests (with SSRF Guard)
 
 **Files:**
 - Modify: `core/routes/intelligence.py:810-848` (replace `ai_test_payload`)
 - Add tests to: `tests/unit/test_routes/test_intelligence_routes.py`
+
+> **SECURITY:** This endpoint sends server-side HTTP requests to arbitrary URLs —
+> it is an SSRF primitive. Must block private/loopback/link-local/metadata IPs.
+> **Accepted risk:** DNS rebinding (resolve-then-request TOCTOU) is not mitigated.
+> This is a local pentesting tool behind API key auth, not a public web app.
+> IP pinning would add significant complexity for minimal threat reduction.
 
 **Step 1: Write the failing tests**
 
 Add to `test_intelligence_routes.py`:
 
 ```python
+import socket
+
+
 class TestPayloadTester:
     def test_payload_test_sends_real_request(self, client):
-        with patch("core.routes.intelligence.requests") as mock_req:
+        with patch("core.routes.intelligence.requests") as mock_req, \
+             patch("core.routes.intelligence.socket") as mock_socket:
+            mock_socket.getaddrinfo.return_value = [
+                (socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 80))
+            ]
             mock_resp = MagicMock()
             mock_resp.status_code = 200
             mock_resp.headers = {"Content-Type": "text/html"}
-            mock_resp.text = "<html>alert(1)</html>"
+            mock_resp.text = "<html><script>alert(1)</script></html>"
             mock_req.request.return_value = mock_resp
             mock_req.RequestException = Exception
 
@@ -660,7 +812,11 @@ class TestPayloadTester:
             assert data["test_result"]["reflection_detected"] is True
 
     def test_payload_test_detects_waf(self, client):
-        with patch("core.routes.intelligence.requests") as mock_req:
+        with patch("core.routes.intelligence.requests") as mock_req, \
+             patch("core.routes.intelligence.socket") as mock_socket:
+            mock_socket.getaddrinfo.return_value = [
+                (socket.AF_INET, socket.SOCK_STREAM, 0, '', ('93.184.216.34', 443))
+            ]
             mock_resp = MagicMock()
             mock_resp.status_code = 403
             mock_resp.headers = {"CF-Ray": "abc123", "Server": "cloudflare"}
@@ -675,12 +831,69 @@ class TestPayloadTester:
             })
             data = resp.get_json()
             assert data["test_result"]["waf_detected"] is True
+
+    def test_payload_test_blocks_private_ip(self, client):
+        """SSRF guard: block requests to private/loopback/link-local addresses."""
+        with patch("core.routes.intelligence.socket") as mock_socket:
+            mock_socket.getaddrinfo.return_value = [
+                (socket.AF_INET, socket.SOCK_STREAM, 0, '', ('127.0.0.1', 80))
+            ]
+            resp = client.post("/api/ai/test_payload", json={
+                "payload": "test",
+                "target_url": "http://localhost/admin",
+                "method": "GET",
+            })
+            data = resp.get_json()
+            assert data["success"] is False
+            assert "private" in data["error"].lower() or "blocked" in data["error"].lower()
+
+    def test_payload_test_blocks_metadata_ip(self, client):
+        """SSRF guard: block cloud metadata endpoint."""
+        with patch("core.routes.intelligence.socket") as mock_socket:
+            mock_socket.getaddrinfo.return_value = [
+                (socket.AF_INET, socket.SOCK_STREAM, 0, '', ('169.254.169.254', 80))
+            ]
+            resp = client.post("/api/ai/test_payload", json={
+                "payload": "test",
+                "target_url": "http://169.254.169.254/latest/meta-data/",
+                "method": "GET",
+            })
+            data = resp.get_json()
+            assert data["success"] is False
 ```
 
-**Step 2: Replace `ai_test_payload` route body**
+**Step 2: Implement SSRF-safe `ai_test_payload` route**
 
-Replace lines 810-848 with a real HTTP request implementation that:
-- Sends `requests.request(method, target_url, params/data containing payload, timeout=10)`
+Replace lines 810-848 with:
+
+```python
+import socket
+import ipaddress
+
+def _is_safe_url(url: str) -> bool:
+    """Resolve URL hostname and reject private/loopback/link-local/metadata IPs."""
+    from urllib.parse import urlparse
+    parsed = urlparse(url)
+    hostname = parsed.hostname
+    if not hostname:
+        return False
+    try:
+        addrs = socket.getaddrinfo(hostname, parsed.port or 80)
+    except socket.gaierror:
+        return False
+    for family, _, _, _, sockaddr in addrs:
+        ip = ipaddress.ip_address(sockaddr[0])
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+            return False
+        # Block cloud metadata
+        if str(ip) == "169.254.169.254":
+            return False
+    return True
+```
+
+The route handler:
+- Calls `_is_safe_url(target_url)` before making any request; returns 400 if blocked
+- Sends `requests.request(method, target_url, params/data containing payload, timeout=10, allow_redirects=False)`
 - Captures status_code, first 2KB of response body, response headers
 - Checks if payload string appears in response body (`reflection_detected`)
 - Checks for WAF headers: CF-Ray, X-WAF, Server: cloudflare/akamai/imperva (`waf_detected`)
@@ -692,30 +905,44 @@ Run: `pytest tests/unit/test_routes/test_intelligence_routes.py -v`
 
 ```bash
 git add core/routes/intelligence.py tests/unit/test_routes/test_intelligence_routes.py
-git commit -m "feat(intel): wire real HTTP requests for payload testing (Phase 5b, Task 10)"
+git commit -m "feat(intel): wire real HTTP payload tester with SSRF guard (Phase 5b, Task 10)"
 ```
 
 ---
 
-### Task 11: Remove Zero-Day Research Endpoint
+### Task 11: Remove Zero-Day Research Endpoint (Coordinated)
+
+> **Codex finding:** This endpoint has existing tests and an MCP wrapper that must be
+> removed simultaneously to avoid broken tests. Files to coordinate:
+> - `core/routes/intelligence.py:648-776` — the route handler
+> - `tests/unit/test_routes/test_workflow_routes.py:356-366` — 2 route tests
+> - `hexstrike_mcp_tools/workflows.py:186-194` — MCP wrapper (`zero_day_research`)
+> - `tests/unit/test_mcp_tools/test_workflow_mcp.py:177-182` — 1 MCP test
 
 **Files:**
-- Modify: `core/routes/intelligence.py:648-776` (delete `zero_day_research` route)
+- Modify: `core/routes/intelligence.py` (delete `zero_day_research` route)
+- Modify: `tests/unit/test_routes/test_workflow_routes.py` (delete `test_zero_day_research_*`)
+- Modify: `hexstrike_mcp_tools/workflows.py` (delete `zero_day_research` MCP tool)
+- Modify: `tests/unit/test_mcp_tools/test_workflow_mcp.py` (delete `test_zero_day_research_calls_api`)
 
-**Step 1: Delete the `zero_day_research` function**
+**Step 1: Delete all four pieces simultaneously**
 
-Remove the entire route handler from line 648 (`@intelligence_bp.route("/api/vuln-intel/zero-day-research"...`) through line 776 (end of function).
+1. In `core/routes/intelligence.py`: Remove the entire `zero_day_research` route handler (lines 648-776).
+2. In `hexstrike_mcp_tools/workflows.py`: Remove the `zero_day_research` MCP tool (lines 186-194).
+3. In `tests/unit/test_routes/test_workflow_routes.py`: Remove `test_zero_day_research_missing_software` and `test_zero_day_research_success` (lines 356-366).
+4. In `tests/unit/test_mcp_tools/test_workflow_mcp.py`: Remove `test_zero_day_research_calls_api` (lines 177-182).
 
 **Step 2: Run full test suite to verify no regressions**
 
 Run: `pytest tests/ -q`
-Expected: All pass (no existing test calls this endpoint)
+Expected: All pass (removed the tests along with the code)
 
 **Step 3: Commit**
 
 ```bash
-git add core/routes/intelligence.py
-git commit -m "fix(intel): remove fake zero-day research endpoint (Phase 5b, Task 11)"
+git add core/routes/intelligence.py hexstrike_mcp_tools/workflows.py \
+  tests/unit/test_routes/test_workflow_routes.py tests/unit/test_mcp_tools/test_workflow_mcp.py
+git commit -m "fix(intel): remove fake zero-day research endpoint + tests + MCP wrapper (Phase 5b, Task 11)"
 ```
 
 ---
@@ -873,17 +1100,27 @@ git commit -m "fix: remove broken parameter_optimizer reference from decision en
 **Files:**
 - Modify: `managers/file_manager.py`
 
+> **Safety check (Codex finding):** Before deleting any functions, verify they are
+> truly unused by grepping for imports across the codebase.
+
 **Step 1: Audit orphaned routes**
 
 Read `managers/file_manager.py` and identify all `@app.route(...)` decorators. These reference a dead `app` object that doesn't exist in the Blueprint architecture.
 
-**Step 2: Delete orphaned route functions**
+**Step 2: Verify no imports exist**
 
-Remove all functions decorated with `@app.route(...)` since they are dead code. Keep the utility methods (file operations, artifact handling) that are imported and used elsewhere.
+Before deleting, run (with explicit search root `.`):
+```bash
+rg -n "from managers\.file_manager import|from managers import file_manager|managers\.file_manager" . -g '*.py' | rg -v 'managers/file_manager.py|__pycache__'
+```
 
-If NO functions are used elsewhere, note that in the commit and consider removing the entire file in a future cleanup.
+If any non-test file imports specific functions from `file_manager.py`, keep those functions. Only delete functions that are both `@app.route`-decorated AND not imported elsewhere.
 
-**Step 3: Run tests and commit**
+**Step 3: Delete orphaned route functions**
+
+Remove all functions decorated with `@app.route(...)` that are confirmed unused. Keep utility methods (file operations, artifact handling) that are imported elsewhere.
+
+**Step 4: Run tests and commit**
 
 Run: `pytest tests/ -q`
 
@@ -935,7 +1172,72 @@ git commit -m "feat: wire tool __init__.py exports for network, web, binary, clo
 
 ---
 
-### Task 17: Batch B Verification
+### Task 17: Pre-flight Import Fixes
+
+> **Codex finding:** `decision_engine.py` and `cve_intelligence.py` have missing imports
+> that will cause NameError/ImportError at runtime. Fix before writing tests (Batch D).
+
+**Files:**
+- Modify: `agents/decision_engine.py` (add `import urllib.parse` and `import socket`)
+- Modify: `agents/cve_intelligence.py` (add `from datetime import datetime, timedelta`, add `from utils.visual_engine import ModernVisualEngine`)
+
+**Step 1: Fix `decision_engine.py` imports**
+
+At line 8, after `import re`, add:
+```python
+import socket
+import urllib.parse
+```
+
+These are used by `_determine_target_type()` (urlparse) and `analyze_target()` (socket.gethostbyname).
+
+**Step 2: Fix `cve_intelligence.py` imports**
+
+Change line 10 from `from datetime import datetime` to:
+```python
+from datetime import datetime, timedelta
+```
+
+And add after the logging import:
+```python
+from utils.visual_engine import ModernVisualEngine
+```
+
+**Step 3: Run smoke test (exercises the fixed imports)**
+
+```bash
+python3 -c "
+import socket
+from unittest.mock import patch, MagicMock
+
+# Verify decision_engine uses socket and urllib.parse
+from agents.decision_engine import IntelligentDecisionEngine
+engine = IntelligentDecisionEngine()
+with patch('agents.decision_engine.socket') as mock_sock:
+    mock_sock.gethostbyname.return_value = '93.184.216.34'
+    profile = engine.analyze_target('example.com')
+    assert profile is not None, 'analyze_target failed'
+print('decision_engine: OK (socket + urllib.parse used)')
+
+# Verify cve_intelligence uses timedelta and ModernVisualEngine
+from agents.cve_intelligence import CVEIntelligenceManager
+cve = CVEIntelligenceManager()
+report = cve.create_summary_report({'vulnerabilities': [], 'target': 'test', 'tools_used': []})
+assert isinstance(report, str), 'create_summary_report failed'
+print('cve_intelligence: OK (timedelta + ModernVisualEngine used)')
+"
+```
+
+**Step 4: Commit**
+
+```bash
+git add agents/decision_engine.py agents/cve_intelligence.py
+git commit -m "fix: add missing imports to decision_engine and cve_intelligence (Phase 5b, Task 17)"
+```
+
+---
+
+### Task 18: Batch B Verification
 
 **Step 1: Run full test suite**
 
@@ -957,13 +1259,16 @@ print('OK: exploit generator is real')
 
 ---
 
-## Batch C: MCP Tool Gap Closure (Tasks 18–22)
+## Batch C: MCP Tool Gap Closure (Tasks 19–21)
 
-### Task 18: Network MCP Tools (9 tools)
+### Task 19: Network MCP Tools (9 tools)
 
 **Files:**
 - Modify: `hexstrike_mcp_tools/network.py` (append 9 new tool functions)
 - Create: `tests/unit/test_mcp_tools/test_network_mcp_gap.py`
+
+> **Convention:** Existing MCP tools use NO leading slash (e.g. `"api/tools/nmap"`).
+> All new tools MUST follow this convention.
 
 **Step 1: Write tests**
 
@@ -988,68 +1293,68 @@ def test_nmap_advanced_scan():
     from hexstrike_mcp_tools.network import nmap_advanced_scan
     nmap_advanced_scan("10.0.0.1")
     m.safe_post.assert_called()
-    assert "/api/tools/nmap-advanced" in m.safe_post.call_args[0][0]
+    assert "api/tools/nmap-advanced" in m.safe_post.call_args[0][0]
 
 
 def test_fierce_scan():
     m = setup_mock()
     from hexstrike_mcp_tools.network import fierce_scan
     fierce_scan("example.com")
-    assert "/api/tools/fierce" in m.safe_post.call_args[0][0]
+    assert "api/tools/fierce" in m.safe_post.call_args[0][0]
 
 
 def test_autorecon_scan():
     m = setup_mock()
     from hexstrike_mcp_tools.network import autorecon_scan
     autorecon_scan("10.0.0.1")
-    assert "/api/tools/autorecon" in m.safe_post.call_args[0][0]
+    assert "api/tools/autorecon" in m.safe_post.call_args[0][0]
 
 
 def test_nbtscan_scan():
     m = setup_mock()
     from hexstrike_mcp_tools.network import nbtscan_scan
     nbtscan_scan("10.0.0.0/24")
-    assert "/api/tools/nbtscan" in m.safe_post.call_args[0][0]
+    assert "api/tools/nbtscan" in m.safe_post.call_args[0][0]
 
 
 def test_scapy_probe():
     m = setup_mock()
     from hexstrike_mcp_tools.network import scapy_probe
     scapy_probe("10.0.0.1")
-    assert "/api/tools/network/scapy" in m.safe_post.call_args[0][0]
+    assert "api/tools/network/scapy" in m.safe_post.call_args[0][0]
 
 
 def test_ipv6_scan():
     m = setup_mock()
     from hexstrike_mcp_tools.network import ipv6_scan
     ipv6_scan("::1")
-    assert "/api/tools/network/ipv6-toolkit" in m.safe_post.call_args[0][0]
+    assert "api/tools/network/ipv6-toolkit" in m.safe_post.call_args[0][0]
 
 
 def test_udp_proto_scan():
     m = setup_mock()
     from hexstrike_mcp_tools.network import udp_proto_scan
     udp_proto_scan("10.0.0.1")
-    assert "/api/tools/network/udp-proto-scanner" in m.safe_post.call_args[0][0]
+    assert "api/tools/network/udp-proto-scanner" in m.safe_post.call_args[0][0]
 
 
 def test_cisco_torch_scan():
     m = setup_mock()
     from hexstrike_mcp_tools.network import cisco_torch_scan
     cisco_torch_scan("10.0.0.1")
-    assert "/api/tools/network/cisco-torch" in m.safe_post.call_args[0][0]
+    assert "api/tools/network/cisco-torch" in m.safe_post.call_args[0][0]
 
 
 def test_enum4linux_ng_scan():
     m = setup_mock()
     from hexstrike_mcp_tools.network import enum4linux_ng_scan
     enum4linux_ng_scan("10.0.0.1")
-    assert "/api/tools/enum4linux-ng" in m.safe_post.call_args[0][0]
+    assert "api/tools/enum4linux-ng" in m.safe_post.call_args[0][0]
 ```
 
 **Step 2: Implement 9 MCP tool wrappers**
 
-Append to `hexstrike_mcp_tools/network.py`, following the existing pattern:
+Append to `hexstrike_mcp_tools/network.py`, following the existing no-leading-slash pattern:
 
 ```python
 @mcp.tool()
@@ -1058,7 +1363,7 @@ def nmap_advanced_scan(target: str, scan_type: str = "-sS", ports: str = "",
                        os_detection: bool = False, version_detection: bool = False,
                        aggressive: bool = False, stealth: bool = False) -> str:
     """Advanced nmap scan with NSE scripts, timing, OS/version detection."""
-    return get_client().safe_post("/api/tools/nmap-advanced", {
+    return get_client().safe_post("api/tools/nmap-advanced", {
         "target": target, "scan_type": scan_type, "ports": ports,
         "timing": timing, "nse_scripts": nse_scripts,
         "os_detection": os_detection, "version_detection": version_detection,
@@ -1074,48 +1379,24 @@ Run: `pytest tests/unit/test_mcp_tools/test_network_mcp_gap.py -v`
 
 ```bash
 git add hexstrike_mcp_tools/network.py tests/unit/test_mcp_tools/test_network_mcp_gap.py
-git commit -m "feat(mcp): add 9 missing network MCP tool wrappers (Phase 5b, Task 18)"
+git commit -m "feat(mcp): add 9 missing network MCP tool wrappers (Phase 5b, Task 19)"
 ```
 
 ---
 
-### Task 19: Binary MCP Tools (4 tools)
+### ~~Binary & Cloud MCP Tools — REMOVED from original 30-task draft~~
 
-**Files:**
-- Modify: `hexstrike_mcp_tools/binary.py`
-- Create: `tests/unit/test_mcp_tools/test_binary_mcp_gap.py`
-
-Same pattern as Task 18. Add 4 tools: `rizin_analyze`, `yara_scan`, `floss_analyze`, `forensics_analyze`.
-
-Match route params from `core/routes/binary.py:387-540`.
-
-**Commit:**
-
-```bash
-git commit -m "feat(mcp): add 4 missing binary MCP tool wrappers (Phase 5b, Task 19)"
-```
+> **Codex finding (verified):** These MCP tools already exist:
+> - `hexstrike_mcp_tools/binary.py`: `yara_malware_scan` (line 70), `floss_string_extract` (line 78),
+>   `rizin_analyze` (line 84), `forensics_analyze` (line 92)
+> - `hexstrike_mcp_tools/cloud.py`: `kubescape_assessment` (line 61), `container_escape_check` (line 69),
+>   `kubernetes_rbac_audit` (line 77)
+>
+> No action needed. These tasks have been removed from the plan.
 
 ---
 
-### Task 20: Cloud MCP Tools (3 tools)
-
-**Files:**
-- Modify: `hexstrike_mcp_tools/cloud.py`
-- Create: `tests/unit/test_mcp_tools/test_cloud_mcp_gap.py`
-
-Add 3 tools: `kubescape_scan`, `container_escape_check`, `rbac_audit`.
-
-Match route params from `core/routes/cloud.py:324-430`.
-
-**Commit:**
-
-```bash
-git commit -m "feat(mcp): add 3 missing cloud MCP tool wrappers (Phase 5b, Task 20)"
-```
-
----
-
-### Task 21: System + Workflow MCP Tools (3 tools)
+### Task 20: System + Workflow MCP Tools (3 tools)
 
 **Files:**
 - Modify: `hexstrike_mcp_tools/system.py`
@@ -1126,16 +1407,17 @@ Add to system.py: `get_telemetry` (GET), `clear_cache` (POST).
 Add to workflows.py: `optimize_tool_parameters` (POST).
 
 Note: `get_telemetry` and `clear_cache` use GET/POST — use `get_client().safe_get()` for GET routes.
+Follow no-leading-slash convention (e.g. `"api/telemetry"` not `"/api/telemetry"`).
 
 **Commit:**
 
 ```bash
-git commit -m "feat(mcp): add system + workflow MCP tool wrappers (Phase 5b, Task 21)"
+git commit -m "feat(mcp): add system + workflow MCP tool wrappers (Phase 5b, Task 20)"
 ```
 
 ---
 
-### Task 22: MCP Gap Verification
+### Task 21: MCP Gap Verification
 
 **Step 1: Run all MCP tests**
 
@@ -1143,26 +1425,28 @@ Run: `pytest tests/unit/test_mcp_tools/ -v`
 
 **Step 2: Count total MCP tools**
 
+Use `grep` to count total registered tools across all files:
+
 ```bash
-python3 -c "
-import hexstrike_mcp_tools
-from hexstrike_mcp_tools import mcp
-tools = [t for t in dir(mcp) if not t.startswith('_')]
-print(f'Total MCP tools registered: check hexstrike_mcp.py imports')
-"
+grep -ho "@mcp.tool()" hexstrike_mcp_tools/*.py | wc -l
 ```
+
+Expected: previous count (103) + 12 (9 network + 3 system/workflow) = ~115 total
 
 **Step 3: Commit verification**
 
 ```bash
-git commit --allow-empty -m "chore: Batch C complete — 19 MCP tool wrappers added (Phase 5b)"
+git commit --allow-empty -m "chore: Batch C complete — 12 MCP tool wrappers added (Phase 5b)"
 ```
 
 ---
 
-## Batch D: Test Coverage (Tasks 23–30)
+## Batch D: Test Coverage (Tasks 22–28)
 
-### Task 23: Decision Engine Tests
+> **Prerequisite:** Task 17 (pre-flight import fixes) MUST be completed before these tests.
+> Without it, `decision_engine.py` and `cve_intelligence.py` will fail to import.
+
+### Task 22: Decision Engine Tests
 
 **Files:**
 - Create: `tests/unit/test_decision_engine.py`
@@ -1172,6 +1456,7 @@ git commit --allow-empty -m "chore: Batch C complete — 19 MCP tool wrappers ad
 ```python
 # tests/unit/test_decision_engine.py
 """Tests for IntelligentDecisionEngine."""
+import pytest
 from unittest.mock import patch
 from agents.decision_engine import IntelligentDecisionEngine
 
@@ -1223,17 +1508,15 @@ def test_no_name_error_on_optimize(engine):
         assert isinstance(params, dict)
 ```
 
-Add `import pytest` at top.
-
 **Commit:**
 
 ```bash
-git commit -m "test: add unit tests for IntelligentDecisionEngine (Phase 5b, Task 23)"
+git commit -m "test: add unit tests for IntelligentDecisionEngine (Phase 5b, Task 22)"
 ```
 
 ---
 
-### Task 24: Bug Bounty Manager Tests
+### Task 23: Bug Bounty Manager Tests
 
 **Files:**
 - Create: `tests/unit/test_bugbounty_manager.py`
@@ -1243,12 +1526,12 @@ Test that workflow methods return dicts with expected keys. Mock any external ca
 **Commit:**
 
 ```bash
-git commit -m "test: add unit tests for BugBountyWorkflowManager (Phase 5b, Task 24)"
+git commit -m "test: add unit tests for BugBountyWorkflowManager (Phase 5b, Task 23)"
 ```
 
 ---
 
-### Task 25: CTF Manager Tests
+### Task 24: CTF Manager Tests
 
 **Files:**
 - Create: `tests/unit/test_ctf_manager.py`
@@ -1258,12 +1541,12 @@ Test plan structure per challenge type. Mock any external calls.
 **Commit:**
 
 ```bash
-git commit -m "test: add unit tests for CTFWorkflowManager (Phase 5b, Task 25)"
+git commit -m "test: add unit tests for CTFWorkflowManager (Phase 5b, Task 24)"
 ```
 
 ---
 
-### Task 26: CVE Intelligence Tests
+### Task 25: CVE Intelligence Tests
 
 **Files:**
 - Create: `tests/unit/test_cve_intelligence.py`
@@ -1273,12 +1556,12 @@ Mock NVD API responses. Test `fetch_latest_cves()`, `analyze_cve_exploitability(
 **Commit:**
 
 ```bash
-git commit -m "test: add unit tests for CVEIntelligenceManager (Phase 5b, Task 26)"
+git commit -m "test: add unit tests for CVEIntelligenceManager (Phase 5b, Task 25)"
 ```
 
 ---
 
-### Task 27: Browser Agent Tests
+### Task 26: Browser Agent Tests
 
 **Files:**
 - Create: `tests/unit/test_browser_agent.py`
@@ -1288,12 +1571,12 @@ Mock webdriver. Test init, navigate, screenshot, DOM extraction. Follow same pat
 **Commit:**
 
 ```bash
-git commit -m "test: add unit tests for BrowserAgent (Phase 5b, Task 27)"
+git commit -m "test: add unit tests for BrowserAgent (Phase 5b, Task 26)"
 ```
 
 ---
 
-### Task 28: Auth + Rate Limit Integration Tests
+### Task 27: Auth + Rate Limit Integration Tests
 
 **Files:**
 - Expand: `tests/unit/test_auth_middleware.py` and `tests/unit/test_rate_limiter.py`
@@ -1303,42 +1586,34 @@ Add edge cases: multiple keys, empty header, key in query param (should fail), r
 **Commit:**
 
 ```bash
-git commit -m "test: expand auth and rate limiter edge case tests (Phase 5b, Task 28)"
+git commit -m "test: expand auth and rate limiter edge case tests (Phase 5b, Task 27)"
 ```
 
 ---
 
-### Task 29: Full Suite Verification
+### Task 28: Full Suite Verification + Documentation
 
 **Step 1: Run entire test suite**
 
 Run: `pytest tests/ -v --tb=short`
-Expected: ~670-690 tests, all PASS
+Expected: ~680+ tests, all PASS
 
 **Step 2: Quick coverage check**
 
 Run: `pytest tests/ --cov=agents --cov=core --cov-report=term-missing | tail -30`
 
----
+**Step 3: Update CHANGELOG.md**
 
-### Task 30: Final Documentation Update
+Add Phase 5b section at top with summary of all new files, changes, and test counts.
 
-**Files:**
-- Modify: `CHANGELOG.md` (add Phase 5b section)
-- Modify: `CLAUDE.md` (update architecture, test counts, new files)
-
-**Step 1: Add Phase 5b section to CHANGELOG.md**
-
-Add at top of changelog: Phase 5b summary with all new files, changes, and test counts.
-
-**Step 2: Update CLAUDE.md**
+**Step 4: Update CLAUDE.md**
 
 - Add `core/auth.py`, `core/rate_limit.py`, `core/validation.py` to Core Components
 - Update MCP tool counts
 - Update test counts
-- Note security hardening (API key auth, rate limiting)
+- Note security hardening (API key auth, rate limiting, SSRF protection)
 
-**Step 3: Commit**
+**Step 5: Commit**
 
 ```bash
 git add CHANGELOG.md CLAUDE.md
@@ -1351,10 +1626,36 @@ git commit -m "docs: Phase 5b complete — CHANGELOG and CLAUDE.md updated"
 
 | Batch | Tasks | New Files | Modified Files | New Tests |
 |-------|-------|-----------|----------------|-----------|
-| A: Security | 1–8 | 4 (`auth.py`, `rate_limit.py`, `validation.py`, test files) | 4 (`server.py`, `client.py`, `network.py`, `web.py`) | ~20 |
-| B: Stubs | 9–17 | 2 (test files) | 6 (`intelligence.py`, `proxy_provider.py`, `decision_engine.py`, `file_manager.py`, 4 `__init__.py`) | ~10 |
-| C: MCP | 18–22 | 4 (test files) | 4 (`network.py`, `binary.py`, `cloud.py`, `system.py`, `workflows.py`) | ~20 |
-| D: Tests | 23–30 | 5 (test files) | 2 (`CHANGELOG.md`, `CLAUDE.md`) | ~30 |
-| **Total** | **30** | **~15** | **~16** | **~80** |
+| A: Security | 1–8 | 4 (`auth.py`, `rate_limit.py`, `validation.py`, test files) | 6 (`server.py`, `client.py`, `network.py`, `web.py`, `cloud.py`, `osint.py`) | ~26 |
+| B: Stubs | 9–18 | 2 (test files) | 10 (`intelligence.py`, `proxy_provider.py`, `decision_engine.py`, `cve_intelligence.py`, `file_manager.py`, `workflows.py`, 4 `__init__.py`) | ~12 |
+| C: MCP | 19–21 | 2 (test files) | 3 (`network.py`, `system.py`, `workflows.py`) | ~12 |
+| D: Tests | 22–28 | 5 (test files) | 2 (`CHANGELOG.md`, `CLAUDE.md`) | ~30 |
+| **Total** | **28** | **~13** | **~21** | **~80** |
 
-**Estimated final test count:** 605 + ~80 = ~685 tests
+**Estimated final test count:** 605 + ~80 - 3 (removed zero-day tests) = ~682 tests
+
+### Revision Log
+
+**Round 1 (Codex review):** 10 findings addressed:
+1. Task 11: Coordinated zero-day removal with tests + MCP wrapper (was orphan delete)
+2. Task 9: Fixed route `/api/vuln-intel/exploit-generate`, response shape `exploit_generation`, dual mocking
+3. Task 10: Added SSRF guards (`_is_safe_url()`, block private/loopback/metadata IPs, disable redirects)
+4. Tasks 5-7: Expanded validation to `domain`, `url`, `host`, `additional_args` (was `target` only)
+5. Tasks 3-4: Added None-guard on `view_functions.get()`, explicit env unset in fixture
+6. Task 17 (NEW): Pre-flight import fixes for `decision_engine.py` and `cve_intelligence.py`
+7. Tasks 19/20 (REMOVED): Binary + cloud MCP tools already exist in codebase
+8. Task 19: Fixed leading-slash convention to match existing `"api/..."` pattern
+9. Task 21: Fixed MCP tool count to use `grep @mcp.tool()` instead of `dir(mcp)`
+10. Task 15: Added grep-for-imports safety check before deletion
+
+**Round 2 (Codex review):** 10 findings addressed:
+1. Task 15: Fixed grep command to use `rg` with explicit root `.` (was missing search path)
+2. Task 21: Fixed MCP count command to use `grep -ho ... | wc -l` for total (was `tail -1`)
+3. Task 10: Documented DNS rebinding as accepted risk (local tool behind auth, low threat)
+4. Tasks 5-6: Moved URL check before metachar rejection (URLs with `&` in query params were wrongly rejected); added test for `?a=1&b=2`
+5. Task 10: Fixed reflection test mock body to include exact payload string
+6. Renamed removed-task section to avoid numbering conflict with active tasks
+7. Corrected Batch B modified-file count from 8 to 10 in summary table
+8. Aligned Task 28 expected test count with summary estimate (~680+)
+9. Task 17: Enhanced smoke test to exercise `analyze_target()` and `create_summary_report()` (not just imports)
+10. Tasks 3-4: Replaced hard asserts with graceful `if None: log + skip` guards in rate limiter
