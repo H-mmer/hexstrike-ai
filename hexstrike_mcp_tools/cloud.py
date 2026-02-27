@@ -1,10 +1,9 @@
 # hexstrike_mcp_tools/cloud.py
 """MCP tool registrations for cloud security tools."""
 from typing import Dict, Any, Optional
-from hexstrike_mcp_tools import mcp, get_client
+from hexstrike_mcp_tools import get_client
 
 
-@mcp.tool()
 def trivy_scan(target: str, scan_type: str = "image",
                output_format: str = "json", severity: str = "") -> Dict[str, Any]:
     """Scan a container image or filesystem for vulnerabilities using Trivy.
@@ -15,7 +14,6 @@ def trivy_scan(target: str, scan_type: str = "image",
     })
 
 
-@mcp.tool()
 def prowler_scan(provider: str = "aws", profile: str = "",
                  region: str = "", checks: str = "") -> Dict[str, Any]:
     """Run Prowler cloud security assessment. provider: aws, azure, gcp."""
@@ -25,7 +23,6 @@ def prowler_scan(provider: str = "aws", profile: str = "",
     })
 
 
-@mcp.tool()
 def kube_hunter_scan(target: str = "", cidr: str = "", active: bool = False) -> Dict[str, Any]:
     """Hunt for Kubernetes security weaknesses with kube-hunter."""
     return get_client().safe_post("api/tools/kube-hunter", {
@@ -33,7 +30,6 @@ def kube_hunter_scan(target: str = "", cidr: str = "", active: bool = False) -> 
     })
 
 
-@mcp.tool()
 def kube_bench_check(targets: str = "", version: str = "") -> Dict[str, Any]:
     """Check Kubernetes configuration against CIS benchmarks with kube-bench."""
     return get_client().safe_post("api/tools/kube-bench", {
@@ -41,7 +37,6 @@ def kube_bench_check(targets: str = "", version: str = "") -> Dict[str, Any]:
     })
 
 
-@mcp.tool()
 def checkov_scan(directory: str = ".", framework: str = "") -> Dict[str, Any]:
     """Scan IaC files for misconfigurations with Checkov. framework: terraform, k8s, cloudformation."""
     return get_client().safe_post("api/tools/checkov", {
@@ -49,7 +44,6 @@ def checkov_scan(directory: str = ".", framework: str = "") -> Dict[str, Any]:
     })
 
 
-@mcp.tool()
 def terrascan_scan(scan_type: str = "all", iac_dir: str = ".") -> Dict[str, Any]:
     """Scan IaC files for policy violations with Terrascan."""
     return get_client().safe_post("api/tools/terrascan", {
@@ -57,7 +51,6 @@ def terrascan_scan(scan_type: str = "all", iac_dir: str = ".") -> Dict[str, Any]
     })
 
 
-@mcp.tool()
 def kubescape_assessment(target: str = "cluster", framework: str = "nsa") -> Dict[str, Any]:
     """Assess Kubernetes security posture with Kubescape (NSA/MITRE frameworks)."""
     return get_client().safe_post("api/tools/cloud/kubescape", {
@@ -65,7 +58,6 @@ def kubescape_assessment(target: str = "cluster", framework: str = "nsa") -> Dic
     })
 
 
-@mcp.tool()
 def container_escape_check(technique: str = "deepce") -> Dict[str, Any]:
     """Check for container escape vulnerabilities and misconfigurations."""
     return get_client().safe_post("api/tools/cloud/container-escape", {
@@ -73,7 +65,6 @@ def container_escape_check(technique: str = "deepce") -> Dict[str, Any]:
     })
 
 
-@mcp.tool()
 def kubernetes_rbac_audit(namespace: str = "") -> Dict[str, Any]:
     """Audit Kubernetes RBAC bindings for over-privileged roles and escalation paths."""
     return get_client().safe_post("api/tools/cloud/rbac-audit", {

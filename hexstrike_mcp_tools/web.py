@@ -1,10 +1,9 @@
 # hexstrike_mcp_tools/web.py
 """MCP tool registrations for web application security tools."""
 from typing import Dict, Any, Optional
-from hexstrike_mcp_tools import mcp, get_client
+from hexstrike_mcp_tools import get_client
 
 
-@mcp.tool()
 def gobuster_scan(target: str, wordlist: str = "/usr/share/wordlists/dirb/common.txt",
                   extensions: str = "php,html,js,txt", mode: str = "dir") -> Dict[str, Any]:
     """Directory, DNS, and vhost brute-force using Gobuster.
@@ -15,7 +14,6 @@ def gobuster_scan(target: str, wordlist: str = "/usr/share/wordlists/dirb/common
     })
 
 
-@mcp.tool()
 def nuclei_scan(target: str, templates: str = "",
                 severity: str = "medium,high,critical", tags: str = "") -> Dict[str, Any]:
     """Vulnerability scanning with Nuclei templates.
@@ -26,7 +24,6 @@ def nuclei_scan(target: str, templates: str = "",
     })
 
 
-@mcp.tool()
 def nikto_scan(target: str, options: str = "") -> Dict[str, Any]:
     """Web server vulnerability scanner using Nikto."""
     return get_client().safe_post("api/tools/nikto", {
@@ -34,7 +31,6 @@ def nikto_scan(target: str, options: str = "") -> Dict[str, Any]:
     })
 
 
-@mcp.tool()
 def sqlmap_scan(url: str, data: str = "", level: int = 1, risk: int = 1) -> Dict[str, Any]:
     """SQL injection testing using SQLMap.
     level: 1-5 (test depth), risk: 1-3 (risk of tests)
@@ -44,7 +40,6 @@ def sqlmap_scan(url: str, data: str = "", level: int = 1, risk: int = 1) -> Dict
     })
 
 
-@mcp.tool()
 def ffuf_fuzz(url: str, wordlist: str = "/usr/share/wordlists/dirb/common.txt",
               match_codes: str = "200,204,301,302,307,401,403") -> Dict[str, Any]:
     """Web fuzzing with ffuf. Use FUZZ keyword in URL: http://target/FUZZ
@@ -55,7 +50,6 @@ def ffuf_fuzz(url: str, wordlist: str = "/usr/share/wordlists/dirb/common.txt",
     })
 
 
-@mcp.tool()
 def feroxbuster_scan(target: str, wordlist: str = "/usr/share/wordlists/dirb/common.txt",
                      threads: int = 10) -> Dict[str, Any]:
     """Recursive content discovery using Feroxbuster."""
@@ -64,7 +58,6 @@ def feroxbuster_scan(target: str, wordlist: str = "/usr/share/wordlists/dirb/com
     })
 
 
-@mcp.tool()
 def wpscan(url: str, enumerate: str = "vp,vt,u") -> Dict[str, Any]:
     """WordPress vulnerability scanner.
     enumerate: vp (vuln plugins), vt (vuln themes), u (users)
@@ -74,7 +67,6 @@ def wpscan(url: str, enumerate: str = "vp,vt,u") -> Dict[str, Any]:
     })
 
 
-@mcp.tool()
 def dalfox_xss(url: str, mining_dom: bool = True, mining_dict: bool = True) -> Dict[str, Any]:
     """XSS vulnerability scanner using Dalfox."""
     return get_client().safe_post("api/tools/dalfox", {
@@ -82,7 +74,6 @@ def dalfox_xss(url: str, mining_dom: bool = True, mining_dict: bool = True) -> D
     })
 
 
-@mcp.tool()
 def dirsearch(url: str, extensions: str = "php,html,js,txt",
               recursive: bool = False, threads: int = 30) -> Dict[str, Any]:
     """Directory and file discovery using Dirsearch."""
@@ -91,7 +82,6 @@ def dirsearch(url: str, extensions: str = "php,html,js,txt",
     })
 
 
-@mcp.tool()
 def wfuzz(url: str, wordlist: str = "/usr/share/wordlists/dirb/common.txt") -> Dict[str, Any]:
     """Web application fuzzer. Include FUZZ keyword in URL."""
     return get_client().safe_post("api/tools/wfuzz", {
@@ -99,7 +89,6 @@ def wfuzz(url: str, wordlist: str = "/usr/share/wordlists/dirb/common.txt") -> D
     })
 
 
-@mcp.tool()
 def katana_crawl(url: str, depth: int = 3, js_crawl: bool = True) -> Dict[str, Any]:
     """Next-generation web crawler and spidering using Katana."""
     return get_client().safe_post("api/tools/katana", {
@@ -107,7 +96,6 @@ def katana_crawl(url: str, depth: int = 3, js_crawl: bool = True) -> Dict[str, A
     })
 
 
-@mcp.tool()
 def arjun_params(url: str, method: str = "GET", threads: int = 25) -> Dict[str, Any]:
     """HTTP parameter discovery using Arjun. method: GET | POST | JSON | XML"""
     return get_client().safe_post("api/tools/arjun", {
@@ -115,7 +103,6 @@ def arjun_params(url: str, method: str = "GET", threads: int = 25) -> Dict[str, 
     })
 
 
-@mcp.tool()
 def paramspider(domain: str) -> Dict[str, Any]:
     """Parameter mining from web archives using ParamSpider."""
     return get_client().safe_post("api/tools/paramspider", {"domain": domain})
@@ -125,7 +112,6 @@ def paramspider(domain: str) -> Dict[str, Any]:
 # Phase 3 web tool MCP registrations
 # ---------------------------------------------------------------------------
 
-@mcp.tool()
 def web_js_analysis(url: str) -> Dict[str, Any]:
     """JavaScript security analysis — finds secrets, endpoints, and vulnerable libraries.
     Runs retire.js, linkfinder, and secretfinder against the target URL.
@@ -133,7 +119,6 @@ def web_js_analysis(url: str) -> Dict[str, Any]:
     return get_client().safe_post("api/tools/web/js-analysis", {"url": url})
 
 
-@mcp.tool()
 def web_injection_test(url: str, inject_type: str = "nosql") -> Dict[str, Any]:
     """Injection vulnerability testing.
     inject_type: nosql | ssrf | xxe | ssti | crlf
@@ -143,7 +128,6 @@ def web_injection_test(url: str, inject_type: str = "nosql") -> Dict[str, Any]:
     })
 
 
-@mcp.tool()
 def web_cms_scan(url: str, cms: str = "wordpress") -> Dict[str, Any]:
     """CMS-specific security scan.
     cms: wordpress | joomla | drupal
@@ -153,13 +137,11 @@ def web_cms_scan(url: str, cms: str = "wordpress") -> Dict[str, Any]:
     })
 
 
-@mcp.tool()
 def web_auth_test(url: str) -> Dict[str, Any]:
     """Authentication vulnerability testing — CSRF, cookies, session handling."""
     return get_client().safe_post("api/tools/web/auth-test", {"url": url})
 
 
-@mcp.tool()
 def web_cdn_bypass(url: str, target_ip: str = "") -> Dict[str, Any]:
     """CDN bypass techniques — discovers origin IP, checks cache poisoning vectors."""
     return get_client().safe_post("api/tools/web/cdn-bypass", {

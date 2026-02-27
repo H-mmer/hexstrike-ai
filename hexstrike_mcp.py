@@ -14,18 +14,7 @@ import logging
 
 from hexstrike_mcp_tools.client import HexStrikeClient, DEFAULT_HEXSTRIKE_SERVER, DEFAULT_REQUEST_TIMEOUT
 import hexstrike_mcp_tools
-import hexstrike_mcp_tools.system
-import hexstrike_mcp_tools.network
-import hexstrike_mcp_tools.web
-import hexstrike_mcp_tools.cloud
-import hexstrike_mcp_tools.binary
-import hexstrike_mcp_tools.mobile
-import hexstrike_mcp_tools.api_security
-import hexstrike_mcp_tools.wireless
-import hexstrike_mcp_tools.osint
-import hexstrike_mcp_tools.workflows
-import hexstrike_mcp_tools.async_tools
-import hexstrike_mcp_tools.browser
+import hexstrike_mcp_tools.grouped  # Single import registers all 22 grouped tools
 
 logger = logging.getLogger(__name__)
 
