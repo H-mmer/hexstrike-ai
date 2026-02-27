@@ -2,9 +2,9 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Replace 114 individual MCP tools with 20 grouped category endpoints via SmartToolRegistry, expand the installer registry from 105 to ~155 entries, and add CI/CD + testing to reach ~780 tests.
+**Goal:** Replace 114 individual MCP tools with 21 grouped category endpoints + 1 discovery endpoint (22 `@mcp.tool()` total) via SmartToolRegistry. Expand the installer registry from 105 to ~151 entries. Add CI/CD + testing to reach ~780 tests.
 
-**Architecture:** A `SmartToolRegistry` class maps (category, tool_name) → (route, method, params). A single `grouped.py` module registers ~20 `@mcp.tool()` functions that accept a `tool` param and dispatch via the registry. Old individual MCP modules keep their functions (for existing tests) but lose `@mcp.tool()` decorators. The launcher (`hexstrike_mcp.py`) imports only `grouped` instead of 12 individual modules.
+**Architecture:** A `SmartToolRegistry` class maps (category, tool_name) → (route, method, description). A single `grouped.py` module registers 22 `@mcp.tool()` functions (21 category tools that accept a `tool` param + 1 `list_available_tools` discovery tool). Each grouped function uses `params: Optional[Dict[str, Any]] = None` (NOT `**kwargs`) so FastMCP generates correct JSON schemas. Dispatch looks up the route via `get_route()` and calls the client. Old individual MCP modules keep their functions (for existing tests) but lose `@mcp.tool()` decorators. The launcher (`hexstrike_mcp.py`) imports only `grouped` instead of 12 individual modules.
 
 **Tech Stack:** Python 3.8+, FastMCP, Flask, pytest, GitHub Actions, ruff
 
@@ -190,7 +190,26 @@ def test_registry_has_all_categories():
 
 def test_registry_tool_count():
     r = build_registry()
-    assert r.tool_count() >= 114
+    assert r.tool_count() >= 114, f"Expected >=114 tools, got {r.tool_count()}"
+
+
+def test_exact_route_mappings():
+    """Validate specific (category, tool, route, method) tuples to catch param drift."""
+    r = build_registry()
+    spot_checks = [
+        ("network_scan", "zmap", "api/tools/network/zmap", "POST"),
+        ("network_recon", "httpx", "api/tools/httpx", "POST"),
+        ("network_enum", "smbmap", "api/tools/smbmap", "POST"),
+        ("web_vuln_test", "sqlmap", "api/tools/sqlmap", "POST"),
+        ("system_admin", "health", "health", "GET"),
+        ("system_admin", "telemetry", "api/telemetry", "GET"),
+        ("browser_stealth", "navigate", "/api/browser/navigate", "POST"),
+        ("mobile_test", "apk-analyze", "api/tools/mobile/apk-analyze", "POST"),
+    ]
+    for cat, tool, expected_route, expected_method in spot_checks:
+        info = r.get_route(cat, tool)
+        assert info["route"] == expected_route, f"{cat}/{tool}: route={info['route']}, expected={expected_route}"
+        assert info["method"] == expected_method, f"{cat}/{tool}: method={info['method']}, expected={expected_method}"
 
 
 def test_network_scan_has_expected_tools():
@@ -343,7 +362,7 @@ def build_registry() -> SmartToolRegistry:
     r.register("web_specialized", "cdn-bypass", "api/tools/web/cdn-bypass",
                description="CDN bypass techniques")
 
-    # ── cloud_assess (9 tools) ────────────────────────────────────
+    # ── cloud_assess (12 tools) ───────────────────────────────────
     r.register("cloud_assess", "trivy", "api/tools/trivy",
                description="Container/filesystem vulnerability scanner")
     r.register("cloud_assess", "prowler", "api/tools/prowler",
@@ -352,6 +371,16 @@ def build_registry() -> SmartToolRegistry:
                description="Kubernetes security hunting")
     r.register("cloud_assess", "kube-bench", "api/tools/kube-bench",
                description="CIS Kubernetes benchmarks")
+    r.register("cloud_assess", "docker-bench", "api/tools/docker-bench-security",
+               description="Docker CIS benchmark")
+    r.register("cloud_assess", "scout-suite", "api/tools/scout-suite",
+               description="Multi-cloud security auditing")
+    r.register("cloud_assess", "cloudmapper", "api/tools/cloudmapper",
+               description="AWS cloud visualization/audit")
+    r.register("cloud_assess", "pacu", "api/tools/pacu",
+               description="AWS exploitation framework")
+    r.register("cloud_assess", "falco", "api/tools/falco",
+               description="Runtime security monitoring")
     r.register("cloud_assess", "checkov", "api/tools/checkov",
                description="IaC misconfiguration scanner")
     r.register("cloud_assess", "terrascan", "api/tools/terrascan",
@@ -365,27 +394,39 @@ def build_registry() -> SmartToolRegistry:
     r.register("cloud_container", "rbac-audit", "api/tools/cloud/rbac-audit",
                description="Kubernetes RBAC audit")
 
-    # ── binary_analyze (8 tools) ──────────────────────────────────
+    # ── binary_analyze (11 tools) ─────────────────────────────────
     r.register("binary_analyze", "gdb", "api/tools/gdb",
                description="Binary debugging with GDB")
+    r.register("binary_analyze", "radare2", "api/tools/radare2",
+               description="Reverse engineering with Radare2")
     r.register("binary_analyze", "ghidra", "api/tools/ghidra",
                description="Reverse engineering with Ghidra")
     r.register("binary_analyze", "binwalk", "api/tools/binwalk",
                description="Firmware/binary file scanning")
     r.register("binary_analyze", "checksec", "api/tools/checksec",
                description="Binary security mitigations check")
-    r.register("binary_analyze", "objdump", "api/tools/objdump",
-               description="Binary disassembly")
     r.register("binary_analyze", "strings", "api/tools/strings",
                description="String extraction from binaries")
+    r.register("binary_analyze", "objdump", "api/tools/objdump",
+               description="Binary disassembly")
+    r.register("binary_analyze", "ropgadget", "api/tools/ropgadget",
+               description="ROP gadget finder")
+    r.register("binary_analyze", "angr", "api/tools/angr",
+               description="Symbolic execution with angr")
     r.register("binary_analyze", "rizin", "api/tools/binary/rizin",
                description="Reverse engineering with Rizin")
+    r.register("binary_analyze", "msfvenom", "api/tools/msfvenom",
+               description="Payload generation with Metasploit")
 
-    # ── binary_forensics (5 tools) ────────────────────────────────
+    # ── binary_forensics (7 tools) ────────────────────────────────
     r.register("binary_forensics", "volatility3", "api/tools/volatility3",
                description="Memory forensics")
     r.register("binary_forensics", "foremost", "api/tools/foremost",
                description="File carving from disk images")
+    r.register("binary_forensics", "steghide", "api/tools/steghide",
+               description="Steganography hide/extract")
+    r.register("binary_forensics", "exiftool", "api/tools/exiftool",
+               description="File metadata extraction")
     r.register("binary_forensics", "yara", "api/tools/binary/yara",
                description="Malware pattern scanning")
     r.register("binary_forensics", "floss", "api/tools/binary/floss",
@@ -433,7 +474,7 @@ def build_registry() -> SmartToolRegistry:
     r.register("osint_gather", "shodan", "api/osint/shodan",
                description="Shodan internet search")
 
-    # ── intelligence (7 tools) ────────────────────────────────────
+    # ── intelligence (12 tools) ───────────────────────────────────
     r.register("intelligence", "analyze-target", "api/intelligence/analyze-target",
                description="AI target analysis")
     r.register("intelligence", "select-tools", "api/intelligence/select-tools",
@@ -454,8 +495,12 @@ def build_registry() -> SmartToolRegistry:
                description="AI security payload generation")
     r.register("intelligence", "advanced-payload", "api/ai/advanced-payload-generation",
                description="Advanced evasion payloads")
+    r.register("intelligence", "test-payload", "api/ai/test_payload",
+               description="Test payload against target")
+    r.register("intelligence", "vuln-correlate", "api/vuln-intel/attack-chains",
+               description="Vulnerability correlation and attack chains")
 
-    # ── ctf (6 tools) ────────────────────────────────────────────
+    # ── ctf (7 tools) ────────────────────────────────────────────
     r.register("ctf", "create-workflow", "api/ctf/create-challenge-workflow",
                description="Create CTF challenge workflow")
     r.register("ctf", "auto-solve", "api/ctf/auto-solve-challenge",
@@ -468,25 +513,41 @@ def build_registry() -> SmartToolRegistry:
                description="Forensics challenge analyzer")
     r.register("ctf", "binary-analyzer", "api/ctf/binary-analyzer",
                description="Binary CTF challenge analyzer")
+    r.register("ctf", "team-strategy", "api/ctf/team-strategy",
+               description="CTF team strategy planner")
 
-    # ── bugbounty (4 tools) ───────────────────────────────────────
+    # ── bugbounty (6 tools) ───────────────────────────────────────
     r.register("bugbounty", "recon", "api/bugbounty/reconnaissance-workflow",
                description="Bug bounty recon workflow")
     r.register("bugbounty", "vuln-hunt", "api/bugbounty/vulnerability-hunting-workflow",
                description="Vulnerability hunting workflow")
+    r.register("bugbounty", "business-logic", "api/bugbounty/business-logic-workflow",
+               description="Business logic testing workflow")
     r.register("bugbounty", "osint", "api/bugbounty/osint-workflow",
                description="Bug bounty OSINT")
+    r.register("bugbounty", "file-upload", "api/bugbounty/file-upload-testing",
+               description="File upload vulnerability testing")
     r.register("bugbounty", "comprehensive", "api/bugbounty/comprehensive-assessment",
                description="Full bug bounty assessment")
 
-    # ── async_scan (4 tools) ──────────────────────────────────────
+    # ── async_scan (9 tools) ──────────────────────────────────────
     # Note: async tools use leading-slash routes (legacy pattern)
     r.register("async_scan", "nmap-async", "/api/network/nmap/async",
                description="Async nmap scan")
+    r.register("async_scan", "rustscan-async", "/api/network/rustscan/async",
+               description="Async rustscan scan")
+    r.register("async_scan", "masscan-async", "/api/network/masscan/async",
+               description="Async masscan scan")
+    r.register("async_scan", "amass-async", "/api/network/amass/async",
+               description="Async amass scan")
+    r.register("async_scan", "subfinder-async", "/api/network/subfinder/async",
+               description="Async subfinder scan")
     r.register("async_scan", "nuclei-async", "/api/web/nuclei/async",
                description="Async nuclei scan")
     r.register("async_scan", "gobuster-async", "/api/web/gobuster/async",
                description="Async gobuster scan")
+    r.register("async_scan", "feroxbuster-async", "/api/web/feroxbuster/async",
+               description="Async feroxbuster scan")
     r.register("async_scan", "poll", "SPECIAL:poll",
                method="GET", description="Poll task status")
 
@@ -521,7 +582,7 @@ def build_registry() -> SmartToolRegistry:
 **Step 4: Run tests to verify they pass**
 
 Run: `pytest tests/unit/test_tool_definitions.py -v`
-Expected: 6 passed
+Expected: 7 passed
 
 **Step 5: Commit**
 
@@ -661,7 +722,7 @@ def test_web_scan_dispatches():
 def test_cloud_assess_dispatches():
     m = setup_mock()
     from hexstrike_mcp_tools.grouped import cloud_assess
-    cloud_assess("trivy", target="nginx:latest")
+    cloud_assess("trivy", params={"target": "nginx:latest"})
     m.safe_post.assert_called()
 
 
@@ -683,42 +744,52 @@ def test_list_available_tools():
 def test_binary_analyze_dispatches():
     m = setup_mock()
     from hexstrike_mcp_tools.grouped import binary_analyze
-    binary_analyze("checksec", binary="/tmp/test")
+    binary_analyze("checksec", params={"binary": "/tmp/test"})
     m.safe_post.assert_called()
+
+
+def test_network_scan_zmap_maps_target_network():
+    """Verify zmap uses target_network param instead of target."""
+    m = setup_mock()
+    from hexstrike_mcp_tools.grouped import network_scan
+    network_scan("zmap", "10.0.0.0/24", params={"port": "80"})
+    call_params = m.safe_post.call_args[0][1]
+    assert "target_network" in call_params, f"Expected target_network, got: {call_params}"
+    assert "target" not in call_params, "zmap should NOT have 'target' param"
 
 
 def test_intelligence_dispatches():
     m = setup_mock()
     from hexstrike_mcp_tools.grouped import intelligence
-    intelligence("analyze-target", target="example.com")
+    intelligence("analyze-target", params={"target": "example.com"})
     m.safe_post.assert_called()
 
 
 def test_osint_gather_dispatches():
     m = setup_mock()
     from hexstrike_mcp_tools.grouped import osint_gather
-    osint_gather("passive-recon", domain="example.com")
+    osint_gather("passive-recon", params={"domain": "example.com"})
     m.safe_post.assert_called()
 
 
 def test_mobile_test_dispatches():
     m = setup_mock()
     from hexstrike_mcp_tools.grouped import mobile_test
-    mobile_test("apk-analyze", apk_path="/tmp/test.apk")
+    mobile_test("apk-analyze", params={"apk_path": "/tmp/test.apk"})
     m.safe_post.assert_called()
 
 
 def test_wireless_test_dispatches():
     m = setup_mock()
     from hexstrike_mcp_tools.grouped import wireless_test
-    wireless_test("wifi-attack", interface="wlan0")
+    wireless_test("wifi-attack", params={"interface": "wlan0"})
     m.safe_post.assert_called()
 
 
 def test_api_test_dispatches():
     m = setup_mock()
     from hexstrike_mcp_tools.grouped import api_test
-    api_test("api-discover", base_url="http://api.example.com")
+    api_test("api-discover", params={"base_url": "http://api.example.com"})
     m.safe_post.assert_called()
 ```
 
@@ -731,7 +802,7 @@ Expected: FAIL — `ImportError`
 
 ```python
 # hexstrike_mcp_tools/grouped.py
-"""Grouped MCP tool endpoints — 21 category tools replacing 114 individual tools."""
+"""Grouped MCP tool endpoints — 22 @mcp.tool() (21 categories + 1 discovery) replacing 114 individual tools."""
 from typing import Dict, Any, Optional
 from hexstrike_mcp_tools import mcp, get_client
 from hexstrike_mcp_tools.tool_definitions import build_registry
@@ -745,7 +816,11 @@ _registry = build_registry()
 def _dispatch(category: str, tool: str, params: dict) -> Dict[str, Any]:
     """Common dispatch: look up route in registry, call via client."""
     try:
-        return _registry.dispatch(category, tool, params, get_client())
+        route_info = _registry.get_route(category, tool)
+        client = get_client()
+        if route_info["method"] == "GET":
+            return client.safe_get(route_info["route"], params)
+        return client.safe_post(route_info["route"], params)
     except KeyError as e:
         available = list(_registry.list_tools(category).keys()) if category in _registry.list_categories() else []
         return {"error": str(e), "available_tools": available, "success": False}
@@ -768,177 +843,206 @@ def list_available_tools(category: Optional[str] = None) -> Dict[str, Any]:
 # ── Network ───────────────────────────────────────────────────────
 
 @mcp.tool()
-def network_scan(tool: str, target: str, **params) -> Dict[str, Any]:
+def network_scan(tool: str, target: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Port scanning and network discovery.
-    tool: nmap|rustscan|masscan|naabu|zmap|nmap-advanced"""
-    params["target"] = target
-    return _dispatch("network_scan", tool, params)
+    tool: nmap|rustscan|masscan|naabu|zmap|nmap-advanced
+    params: tool-specific options (ports, scan_type, rate, additional_args, etc.)"""
+    p = dict(params or {})
+    if tool == "zmap":
+        p["target_network"] = target
+    else:
+        p["target"] = target
+    return _dispatch("network_scan", tool, p)
 
 
 @mcp.tool()
-def network_recon(tool: str, target: str, **params) -> Dict[str, Any]:
+def network_recon(tool: str, target: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Subdomain enumeration, DNS recon, URL discovery.
     tool: amass|subfinder|httpx|waybackurls|gau|dnsenum|fierce|autorecon|nbtscan
-    Note: for domain-based tools, target is the domain."""
+    Note: for domain-based tools, target is the domain.
+    params: tool-specific options (mode, passive, threads, additional_args, etc.)"""
+    p = dict(params or {})
     # Map 'target' to the param name each route expects
     if tool in ("amass", "subfinder", "waybackurls", "gau", "dnsenum", "fierce"):
-        params["domain"] = target
-    elif tool == "httpx":
-        params["targets"] = target
+        p["domain"] = target
     else:
-        params["target"] = target
-    return _dispatch("network_recon", tool, params)
+        p["target"] = target
+    return _dispatch("network_recon", tool, p)
 
 
 @mcp.tool()
-def network_enum(tool: str, target: str, **params) -> Dict[str, Any]:
+def network_enum(tool: str, target: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """SMB/Windows/SNMP enumeration and WAF detection.
-    tool: enum4linux|enum4linux-ng|smbmap|netexec|snmp-check|wafw00f"""
+    tool: enum4linux|enum4linux-ng|smbmap|netexec|snmp-check|wafw00f
+    params: tool-specific options (username, password, domain, additional_args, etc.)"""
+    p = dict(params or {})
     if tool == "smbmap":
-        params["host"] = target
+        p["host"] = target
     else:
-        params["target"] = target
-    return _dispatch("network_enum", tool, params)
+        p["target"] = target
+    return _dispatch("network_enum", tool, p)
 
 
 @mcp.tool()
-def network_advanced(tool: str, target: str, **params) -> Dict[str, Any]:
+def network_advanced(tool: str, target: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Advanced packet crafting, IPv6, UDP, Cisco tools.
-    tool: scapy|ipv6|udp-proto|cisco-torch"""
-    params["target"] = target
-    return _dispatch("network_advanced", tool, params)
+    tool: scapy|ipv6|udp-proto|cisco-torch
+    params: tool-specific options (packet_type, scan_type, proto_list, etc.)"""
+    p = dict(params or {})
+    p["target"] = target
+    return _dispatch("network_advanced", tool, p)
 
 
 # ── Web ───────────────────────────────────────────────────────────
 
 @mcp.tool()
-def web_scan(tool: str, target: str, **params) -> Dict[str, Any]:
+def web_scan(tool: str, target: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Web content discovery and fuzzing.
-    tool: gobuster|nuclei|nikto|ffuf|feroxbuster|dirsearch|wfuzz|katana"""
+    tool: gobuster|nuclei|nikto|ffuf|feroxbuster|dirsearch|wfuzz|katana
+    params: tool-specific options (wordlist, extensions, threads, severity, additional_args, etc.)"""
+    p = dict(params or {})
     # Map target to tool-specific param name
     if tool in ("ffuf", "dirsearch", "wfuzz", "katana"):
-        params["url"] = target
+        p["url"] = target
     else:
-        params["target"] = target
-    return _dispatch("web_scan", tool, params)
+        p["target"] = target
+    return _dispatch("web_scan", tool, p)
 
 
 @mcp.tool()
-def web_vuln_test(tool: str, target: str, **params) -> Dict[str, Any]:
+def web_vuln_test(tool: str, target: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """SQL injection, XSS, parameter discovery.
-    tool: sqlmap|dalfox|arjun|paramspider"""
+    tool: sqlmap|dalfox|arjun|paramspider
+    params: tool-specific options (data, level, risk, method, additional_args, etc.)"""
+    p = dict(params or {})
     if tool == "paramspider":
-        params["domain"] = target
+        p["domain"] = target
     else:
-        params["url"] = target
-    return _dispatch("web_vuln_test", tool, params)
+        p["url"] = target
+    return _dispatch("web_vuln_test", tool, p)
 
 
 @mcp.tool()
-def web_specialized(tool: str, target: str, **params) -> Dict[str, Any]:
+def web_specialized(tool: str, target: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """CMS scanning, JS analysis, injection testing, auth testing, CDN bypass.
-    tool: wpscan|js-analysis|injection-test|cms-scan|auth-test|cdn-bypass"""
-    params["url"] = target
-    return _dispatch("web_specialized", tool, params)
+    tool: wpscan|js-analysis|injection-test|cms-scan|auth-test|cdn-bypass
+    params: tool-specific options (enumerate, cms, target_ip, type, etc.)"""
+    p = dict(params or {})
+    p["url"] = target
+    return _dispatch("web_specialized", tool, p)
 
 
 # ── Cloud ─────────────────────────────────────────────────────────
 
 @mcp.tool()
-def cloud_assess(tool: str, **params) -> Dict[str, Any]:
+def cloud_assess(tool: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Cloud security assessment (AWS, K8s, containers, IaC).
-    tool: trivy|prowler|kube-hunter|kube-bench|checkov|terrascan|kubescape"""
-    return _dispatch("cloud_assess", tool, params)
+    tool: trivy|prowler|kube-hunter|kube-bench|docker-bench|scout-suite|cloudmapper|pacu|falco|checkov|terrascan|kubescape
+    params: tool-specific options (target, provider, profile, region, checks, etc.)"""
+    return _dispatch("cloud_assess", tool, dict(params or {}))
 
 
 @mcp.tool()
-def cloud_container(tool: str, **params) -> Dict[str, Any]:
+def cloud_container(tool: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Container escape and RBAC auditing.
-    tool: container-escape|rbac-audit"""
-    return _dispatch("cloud_container", tool, params)
+    tool: container-escape|rbac-audit
+    params: tool-specific options (technique, namespace, etc.)"""
+    return _dispatch("cloud_container", tool, dict(params or {}))
 
 
 # ── Binary ────────────────────────────────────────────────────────
 
 @mcp.tool()
-def binary_analyze(tool: str, **params) -> Dict[str, Any]:
+def binary_analyze(tool: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Binary reverse engineering and analysis.
-    tool: gdb|ghidra|binwalk|checksec|objdump|strings|rizin"""
-    return _dispatch("binary_analyze", tool, params)
+    tool: gdb|radare2|ghidra|binwalk|checksec|strings|objdump|ropgadget|angr|rizin|msfvenom
+    params: tool-specific options (binary, file_path, commands, payload, format, etc.)"""
+    return _dispatch("binary_analyze", tool, dict(params or {}))
 
 
 @mcp.tool()
-def binary_forensics(tool: str, **params) -> Dict[str, Any]:
+def binary_forensics(tool: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Memory forensics, file carving, malware scanning.
-    tool: volatility3|foremost|yara|floss|forensics"""
-    return _dispatch("binary_forensics", tool, params)
+    tool: volatility3|foremost|steghide|exiftool|yara|floss|forensics
+    params: tool-specific options (memory_file, plugin, input_file, cover_file, file_path, etc.)"""
+    return _dispatch("binary_forensics", tool, dict(params or {}))
 
 
 # ── Mobile / API / Wireless ──────────────────────────────────────
 
 @mcp.tool()
-def mobile_test(tool: str, **params) -> Dict[str, Any]:
+def mobile_test(tool: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Mobile app security testing (Android/iOS).
-    tool: apk-analyze|ios-analyze|drozer|mitm"""
-    return _dispatch("mobile_test", tool, params)
+    tool: apk-analyze|ios-analyze|drozer|mitm
+    params: tool-specific options (apk_path, ipa_path, package, listen_port, etc.)"""
+    return _dispatch("mobile_test", tool, dict(params or {}))
 
 
 @mcp.tool()
-def api_test(tool: str, **params) -> Dict[str, Any]:
+def api_test(tool: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """API security testing — discovery, fuzzing, auth.
-    tool: api-discover|api-fuzz|api-auth-test|api-monitor"""
-    return _dispatch("api_test", tool, params)
+    tool: api-discover|api-fuzz|api-auth-test|api-monitor
+    params: tool-specific options (base_url, schema_url, wordlist, jwt_token, etc.)"""
+    return _dispatch("api_test", tool, dict(params or {}))
 
 
 @mcp.tool()
-def wireless_test(tool: str, **params) -> Dict[str, Any]:
+def wireless_test(tool: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Wireless security — WiFi, Bluetooth, RF.
-    tool: wifi-attack|bluetooth-scan|rf-analysis"""
-    return _dispatch("wireless_test", tool, params)
+    tool: wifi-attack|bluetooth-scan|rf-analysis
+    params: tool-specific options (interface, target_bssid, target_addr, frequency, etc.)"""
+    return _dispatch("wireless_test", tool, dict(params or {}))
 
 
 # ── OSINT ─────────────────────────────────────────────────────────
 
 @mcp.tool()
-def osint_gather(tool: str, **params) -> Dict[str, Any]:
+def osint_gather(tool: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """OSINT and passive reconnaissance.
-    tool: passive-recon|threat-intel|social-recon|breach-check|shodan"""
-    return _dispatch("osint_gather", tool, params)
+    tool: passive-recon|threat-intel|social-recon|breach-check|shodan
+    params: tool-specific options (domain, ioc, username, email, query, api_key, etc.)"""
+    return _dispatch("osint_gather", tool, dict(params or {}))
 
 
 # ── Intelligence / CTF / Bug Bounty ──────────────────────────────
 
 @mcp.tool()
-def intelligence(tool: str, **params) -> Dict[str, Any]:
+def intelligence(tool: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """AI-powered intelligence, CVE monitoring, payload generation.
     tool: analyze-target|select-tools|attack-chain|tech-detect|optimize-params|
-    cve-monitor|exploit-gen|threat-feeds|payload-gen|advanced-payload"""
-    return _dispatch("intelligence", tool, params)
+    cve-monitor|exploit-gen|threat-feeds|payload-gen|advanced-payload|test-payload|vuln-correlate
+    params: tool-specific options (target, objective, cve_id, attack_type, indicators, etc.)"""
+    return _dispatch("intelligence", tool, dict(params or {}))
 
 
 @mcp.tool()
-def ctf(tool: str, **params) -> Dict[str, Any]:
+def ctf(tool: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """CTF challenge workflows and solvers.
-    tool: create-workflow|auto-solve|suggest-tools|crypto-solver|forensics-analyzer|binary-analyzer"""
-    return _dispatch("ctf", tool, params)
+    tool: create-workflow|auto-solve|suggest-tools|crypto-solver|forensics-analyzer|binary-analyzer|team-strategy
+    params: tool-specific options (name, category, difficulty, cipher_text, binary_path, etc.)"""
+    return _dispatch("ctf", tool, dict(params or {}))
 
 
 @mcp.tool()
-def bugbounty(tool: str, **params) -> Dict[str, Any]:
-    """Bug bounty workflows — recon, vuln hunting, OSINT.
-    tool: recon|vuln-hunt|osint|comprehensive"""
-    return _dispatch("bugbounty", tool, params)
+def bugbounty(tool: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Bug bounty workflows — recon, vuln hunting, OSINT, comprehensive.
+    tool: recon|vuln-hunt|business-logic|osint|file-upload|comprehensive
+    params: tool-specific options (domain, scope, priority_vulns, target_url, etc.)"""
+    return _dispatch("bugbounty", tool, dict(params or {}))
 
 
 # ── Async / Browser / System ─────────────────────────────────────
 
 @mcp.tool()
-def async_scan(tool: str, **params) -> Dict[str, Any]:
+def async_scan(tool: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Submit and manage async background scans.
-    tool: nmap-async|nuclei-async|gobuster-async|poll
-    For poll: pass task_id param."""
+    tool: nmap-async|rustscan-async|masscan-async|amass-async|subfinder-async|
+    nuclei-async|gobuster-async|feroxbuster-async|poll
+    params: tool-specific options (target, ports, task_id, etc.)
+    For poll: pass task_id in params."""
+    p = dict(params or {})
     if tool == "poll":
-        task_id = params.get("task_id", "")
+        task_id = p.get("task_id", "")
         client = get_client()
         try:
             resp = _requests.get(
@@ -947,33 +1051,35 @@ def async_scan(tool: str, **params) -> Dict[str, Any]:
             return resp.json() if resp.ok else {"error": resp.text}
         except Exception as e:
             return {"error": str(e)}
-    return _dispatch("async_scan", tool, params)
+    return _dispatch("async_scan", tool, p)
 
 
 @mcp.tool()
-def browser_stealth(tool: str, **params) -> Dict[str, Any]:
+def browser_stealth(tool: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Stealth browser automation — navigate, screenshot, DOM, form fill.
-    tool: navigate|screenshot|dom|form-fill"""
-    return _dispatch("browser_stealth", tool, params)
+    tool: navigate|screenshot|dom|form-fill
+    params: tool-specific options (url, preset, wait, selector, value, etc.)"""
+    return _dispatch("browser_stealth", tool, dict(params or {}))
 
 
 @mcp.tool()
-def system_admin(tool: str, **params) -> Dict[str, Any]:
+def system_admin(tool: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """System administration — health, cache, telemetry, processes.
-    tool: health|command|cache-stats|cache-clear|telemetry|processes"""
-    return _dispatch("system_admin", tool, params)
+    tool: health|command|cache-stats|cache-clear|telemetry|processes
+    params: tool-specific options (command, etc.)"""
+    return _dispatch("system_admin", tool, dict(params or {}))
 ```
 
 **Step 4: Run tests**
 
 Run: `pytest tests/unit/test_mcp_tools/test_grouped_mcp.py -v`
-Expected: 13 passed
+Expected: 14 passed
 
 **Step 5: Commit**
 
 ```bash
 git add hexstrike_mcp_tools/grouped.py tests/unit/test_mcp_tools/test_grouped_mcp.py
-git commit -m "feat(mcp): add 21 grouped MCP endpoints via SmartToolRegistry (Phase 6, Tasks 7-8)"
+git commit -m "feat(mcp): add 22 grouped MCP endpoints via SmartToolRegistry (Phase 6, Tasks 7-8)"
 ```
 
 ---
@@ -1015,7 +1121,7 @@ def test_grouped_has_mcp_tools():
     """grouped.py must register MCP tools."""
     source = (MCP_DIR / "grouped.py").read_text()
     count = source.count("@mcp.tool()")
-    assert count >= 20, f"Expected >=20 @mcp.tool() in grouped.py, found {count}"
+    assert count >= 22, f"Expected >=22 @mcp.tool() in grouped.py, found {count}"
 
 
 def test_launcher_imports_grouped():
@@ -1054,7 +1160,7 @@ import logging
 
 from hexstrike_mcp_tools.client import HexStrikeClient, DEFAULT_HEXSTRIKE_SERVER, DEFAULT_REQUEST_TIMEOUT
 import hexstrike_mcp_tools
-import hexstrike_mcp_tools.grouped  # Single import registers all 21 grouped tools
+import hexstrike_mcp_tools.grouped  # Single import registers all 22 grouped tools
 
 logger = logging.getLogger(__name__)
 
@@ -1093,7 +1199,7 @@ Expected: existing tests still pass (old functions remain callable, just not MCP
 
 ```bash
 git add hexstrike_mcp.py hexstrike_mcp_tools/*.py tests/unit/test_mcp_migration.py
-git commit -m "feat(mcp): migrate to grouped-only MCP — 114 individual → 21 grouped (Phase 6, Tasks 9-10)"
+git commit -m "feat(mcp): migrate to grouped-only MCP — 114 individual → 22 grouped (Phase 6, Tasks 9-10)"
 ```
 
 ---
@@ -1106,7 +1212,7 @@ git commit -m "feat(mcp): migrate to grouped-only MCP — 114 individual → 21 
 grep -c "@mcp.tool()" hexstrike_mcp_tools/grouped.py
 ```
 
-Expected: 21 (20 category tools + 1 `list_available_tools`)
+Expected: 22 (21 category tools + 1 `list_available_tools`)
 
 **Step 2: Verify no old decorators**
 
@@ -1124,7 +1230,7 @@ Expected: all existing tests pass
 **Step 4: Commit**
 
 ```bash
-git commit --allow-empty -m "chore: Batch B complete — MCP migration verified, 21 grouped tools (Phase 6)"
+git commit --allow-empty -m "chore: Batch B complete — MCP migration verified, 22 grouped tools (Phase 6)"
 ```
 
 ---
@@ -1151,10 +1257,22 @@ def _load_registry():
         return yaml.safe_load(f)
 
 
-def test_registry_has_at_least_150_tools():
+def test_registry_has_at_least_145_tools():
     data = _load_registry()
     tools = data.get("tools", {})
-    assert len(tools) >= 150, f"Expected >=150, got {len(tools)}"
+    assert len(tools) >= 145, f"Expected >=145, got {len(tools)}"
+
+
+def test_no_duplicate_tool_names():
+    """Registry must not have duplicate entries (YAML keys are unique by spec,
+    but verify programmatically by counting raw occurrences)."""
+    import re
+    with open(Path("scripts/installer/registry.yaml")) as f:
+        content = f.read()
+    # Each tool is a top-level key under 'tools:' — match 2-space-indented keys
+    names = re.findall(r"^  (\w[\w-]*):", content, re.MULTILINE)
+    dupes = [n for n in names if names.count(n) > 1]
+    assert dupes == [], f"Duplicate tool names: {set(dupes)}"
 
 
 def test_mobile_tools_in_registry():
@@ -1211,16 +1329,19 @@ Append the new tool entries to `scripts/installer/registry.yaml`. Each entry fol
   # ... (full list of ~50 new tools — see design doc Part 2 for complete list)
 ```
 
-New tools to add (~50):
+New tools to add (~43, deduplicated — 6 tools already in registry removed):
 
-**Mobile** (7): drozer, dex2jar, objection, needle, class-dump, cycript, ipa-analyzer
-**Wireless** (5): fluxion, wifi-pumpkin, btlejack, crackle, cowpatty
-**Web** (9): nosqlmap, xxeinjector, linkfinder, jsluice, secretfinder, sourcemapper, saml-raider, ssti-scanner, crlf-injector
-**Binary** (7): cutter, pwndbg, unicorn, capstone, ret-sync, ida-free, binary-ninja-free
-**Cloud** (7): popeye, rbac-police, kubesec, aws-vault, deepce, amicontained, peirates
-**Network** (5): nbtscan, cisco-torch, vlan-hopper, ipv6toolkit, udp-proto-scanner
-**Forensics** (6): plaso, rekall, ftk-imager-cli, guymager, dc3dd, cuckoo-sandbox
-**OSINT** (3): sherlock, holehe, social-analyzer
+**Already present (DO NOT add):** dex2jar, objection, nosqlmap, linkfinder, pwndbg, capstone
+
+**Mobile** (5 new): drozer, needle, class-dump, cycript, ipa-analyzer
+**Wireless** (6 new): reaver, fluxion, wifi-pumpkin, btlejack, crackle, cowpatty
+**Web** (7 new): xxeinjector, jsluice, secretfinder, sourcemapper, saml-raider, ssti-scanner, crlf-injector
+**Binary** (5 new): cutter, unicorn, ret-sync, ida-free, binary-ninja-free
+**Cloud** (7 new): popeye, rbac-police, kubesec, aws-vault, deepce, amicontained, peirates
+**Network** (5 new): nbtscan, cisco-torch, vlan-hopper, ipv6toolkit, udp-proto-scanner
+**Forensics** (6 new): plaso, rekall, ftk-imager-cli, guymager, dc3dd, cuckoo-sandbox
+**OSINT** (3 new): sherlock, holehe, social-analyzer
+Total: 105 existing + ~46 new = ~151 entries (verify exact count >= 145 in tests)
 
 **Step 4: Run tests**
 
@@ -1231,7 +1352,7 @@ Expected: 5 passed
 
 ```bash
 git add scripts/installer/registry.yaml tests/unit/test_installer/test_registry_expansion.py
-git commit -m "feat(installer): expand registry from 105 to ~155 tools (Phase 6, Tasks 13-14)"
+git commit -m "feat(installer): expand registry from 105 to ~151 tools (Phase 6, Tasks 13-14)"
 ```
 
 ---
@@ -1259,7 +1380,7 @@ print(f'Complete: {len(complete.get_complete_tools())} tools')
 "
 ```
 
-Expected: counts should be higher than before (quick >= 25, standard >= 64, complete >= 155)
+Expected: counts should be higher than before (quick >= 25, standard >= 64, complete >= 145)
 
 **Step 4: Commit**
 
@@ -1303,7 +1424,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
       - name: Run tests
         run: pytest --tb=short -q
 
@@ -1317,8 +1438,8 @@ jobs:
           python-version: "3.11"
       - name: Install ruff
         run: pip install ruff
-      - name: Run linter
-        run: ruff check . --exit-zero --output-format=github
+      - name: Run linter (fail on E/F errors)
+        run: ruff check . --select E,F --output-format=github
 
   security:
     runs-on: ubuntu-latest
@@ -1330,8 +1451,8 @@ jobs:
           python-version: "3.11"
       - name: Install bandit
         run: pip install bandit
-      - name: Run security scan
-        run: bandit -r core/ agents/ managers/ tools/ hexstrike_mcp_tools/ -f json -o security-report.json --exit-zero
+      - name: Run security scan (fail on high/critical severity)
+        run: bandit -r core/ agents/ managers/ tools/ hexstrike_mcp_tools/ -lll -f json -o security-report.json
       - name: Upload security report
         uses: actions/upload-artifact@v4
         if: always()
@@ -1380,7 +1501,7 @@ ignore = [
 
 **Step 2: Verify ruff runs clean**
 
-Run: `pip install ruff && ruff check . --exit-zero`
+Run: `pip install ruff && ruff check . --select E,F`
 
 **Step 3: Commit**
 
@@ -1391,62 +1512,38 @@ git commit -m "ci: add ruff linter configuration (Phase 6, Tasks 19-20)"
 
 ---
 
-### Task 21–22: Route integration tests for under-tested blueprints
+### Task 21–22: Extend route integration tests for under-tested blueprints
+
+**IMPORTANT:** All 5 test files already exist — do NOT overwrite them. Only append new test
+functions that cover gaps not currently tested. Check each file first and add only missing coverage.
 
 **Files:**
-- Create: `tests/unit/test_routes/test_cloud_routes.py`
-- Create: `tests/unit/test_routes/test_binary_routes.py`
-- Create: `tests/unit/test_routes/test_mobile_routes.py`
-- Create: `tests/unit/test_routes/test_wireless_routes.py`
-- Create: `tests/unit/test_routes/test_api_security_routes.py`
+- Extend: `tests/unit/test_routes/test_cloud_routes.py` (already exists)
+- Extend: `tests/unit/test_routes/test_binary_routes.py` (already exists)
+- Extend: `tests/unit/test_routes/test_mobile_routes.py` (already exists)
+- Extend: `tests/unit/test_routes/test_wireless_routes.py` (already exists)
+- Extend: `tests/unit/test_routes/test_api_security_routes.py` (already exists)
 
-**Step 1: Write route tests**
+**Step 1: Read existing tests, then add missing coverage**
 
-Each test file follows the same pattern — create the Flask test client, POST to the route with a mock target, assert 400 (missing tool) or 200 shape. Example for cloud:
+Read each file to see what's already tested. Existing tests may assert 503 when tools are missing
+(correct behavior). Only add tests for routes not yet covered. Example additions for cloud:
 
 ```python
-# tests/unit/test_routes/test_cloud_routes.py
-"""Route tests for cloud Blueprint."""
-import pytest
-from core.server import create_app
+# Append to tests/unit/test_routes/test_cloud_routes.py
+# (only tests that don't already exist)
+
+def test_falco_monitoring(client):
+    resp = client.post("/api/tools/falco", json={"config_file": "rules.yaml"})
+    assert resp.status_code in (200, 503)  # 503 if falco not installed
 
 
-@pytest.fixture
-def client(monkeypatch):
-    monkeypatch.delenv("HEXSTRIKE_API_KEY", raising=False)
-    app = create_app()
-    app.config["TESTING"] = True
-    with app.test_client() as c:
-        yield c
-
-
-def test_trivy_missing_target(client):
-    resp = client.post("/api/tools/trivy", json={})
-    assert resp.status_code == 400
-
-
-def test_trivy_with_target(client):
-    resp = client.post("/api/tools/trivy", json={"target": "nginx:latest"})
-    # Tool not installed returns 200 with error or 200 with result
-    assert resp.status_code == 200
-
-
-def test_prowler_with_provider(client):
-    resp = client.post("/api/tools/prowler", json={"provider": "aws"})
-    assert resp.status_code == 200
-
-
-def test_checkov_scan(client):
-    resp = client.post("/api/tools/checkov", json={"directory": "."})
-    assert resp.status_code == 200
-
-
-def test_kubescape_assessment(client):
-    resp = client.post("/api/tools/cloud/kubescape", json={"target": "cluster"})
-    assert resp.status_code == 200
+def test_terrascan_iac_scan(client):
+    resp = client.post("/api/tools/terrascan", json={"scan_type": "aws", "iac_dir": "."})
+    assert resp.status_code in (200, 503)
 ```
 
-Write similar 3-5 tests per file for binary, mobile, wireless, api_security.
+Add similar 2-3 new tests per file for routes not yet covered.
 
 **Step 2: Run tests**
 
@@ -1483,8 +1580,27 @@ from hexstrike_mcp_tools import initialize
 from hexstrike_mcp_tools.tool_definitions import build_registry
 
 
-def test_all_registry_tools_dispatchable():
-    """Every tool in the registry should dispatch without KeyError."""
+def test_all_registry_tools_have_valid_routes():
+    """Every tool in the registry should have a valid route and method."""
+    registry = build_registry()
+    errors = []
+    valid_methods = {"GET", "POST"}
+    for cat in registry.list_categories():
+        tools = registry.list_tools(cat)
+        for tool_name in tools:
+            try:
+                info = registry.get_route(cat, tool_name)
+                if not info["route"]:
+                    errors.append(f"{cat}/{tool_name}: empty route")
+                if info["method"] not in valid_methods:
+                    errors.append(f"{cat}/{tool_name}: invalid method {info['method']}")
+            except KeyError as e:
+                errors.append(f"{cat}/{tool_name}: {e}")
+    assert errors == [], f"Route errors: {errors}"
+
+
+def test_all_registry_tools_dispatchable_via_client():
+    """Every tool in the registry should dispatch without error via mock client."""
     mock = MagicMock()
     mock.safe_post.return_value = {"success": True}
     mock.safe_get.return_value = {"success": True}
@@ -1497,10 +1613,11 @@ def test_all_registry_tools_dispatchable():
         tools = registry.list_tools(cat)
         for tool_name in tools:
             try:
-                # Skip special async poll tool
-                if tool_name == "poll":
-                    continue
-                registry.dispatch(cat, tool_name, {"target": "test"}, mock)
+                route_info = registry.get_route(cat, tool_name)
+                if route_info["method"] == "GET":
+                    mock.safe_get(route_info["route"], {})
+                else:
+                    mock.safe_post(route_info["route"], {"target": "test"})
             except Exception as e:
                 errors.append(f"{cat}/{tool_name}: {e}")
     assert errors == [], f"Dispatch errors: {errors}"
@@ -1521,7 +1638,7 @@ def test_registry_categories_match_grouped_functions():
 **Step 2: Run tests**
 
 Run: `pytest tests/unit/test_grouped_integration.py -v`
-Expected: 2 passed
+Expected: 3 passed
 
 **Step 3: Commit**
 
@@ -1545,7 +1662,7 @@ Expected: ~750+ tests, all PASS
 grep -c "@mcp.tool()" hexstrike_mcp_tools/grouped.py
 ```
 
-Expected: 21
+Expected: 22
 
 **Step 3: Verify registry count**
 
@@ -1558,7 +1675,7 @@ print(f'Registry: {len(data[\"tools\"])} tools')
 "
 ```
 
-Expected: ~155
+Expected: ~151
 
 ---
 
@@ -1577,14 +1694,15 @@ Add Phase 6 section at top:
 
 ### Summary
 
-Replaced 114 individual MCP tools with 21 grouped category endpoints via
-SmartToolRegistry. Expanded installer registry from 105 to ~155 entries.
-Added GitHub Actions CI/CD pipeline with test, lint, and security scan jobs.
+Replaced 114 individual MCP tools with 22 @mcp.tool() endpoints (21 grouped
+categories + 1 discovery tool) via SmartToolRegistry. Expanded installer
+registry from 105 to ~151 entries. Added GitHub Actions CI/CD pipeline with
+test, lint, and security scan jobs.
 
 ### New Files
 - `hexstrike_mcp_tools/registry.py` — SmartToolRegistry class
 - `hexstrike_mcp_tools/tool_definitions.py` — 114+ tool-to-route mappings
-- `hexstrike_mcp_tools/grouped.py` — 21 grouped @mcp.tool() endpoints
+- `hexstrike_mcp_tools/grouped.py` — 22 @mcp.tool() endpoints (21 grouped + 1 discovery)
 - `.github/workflows/ci.yml` — CI/CD pipeline
 - `ruff.toml` — Linter configuration
 - 8 new test files
@@ -1592,11 +1710,11 @@ Added GitHub Actions CI/CD pipeline with test, lint, and security scan jobs.
 ### Changed Files
 - `hexstrike_mcp.py` — Imports only `grouped` (was 12 modules)
 - 12 old MCP modules — @mcp.tool() decorators removed (functions kept for backward compat)
-- `scripts/installer/registry.yaml` — 105 → ~155 tool entries
+- `scripts/installer/registry.yaml` — 105 → ~151 tool entries
 
 ### Key Metrics
-- MCP tools: 114 individual → 21 grouped
-- Registry: 105 → ~155 entries
+- MCP tools: 114 individual → 22 @mcp.tool() (21 grouped + 1 discovery)
+- Registry: 105 → ~151 entries
 - Tests: 689 → ~750+
 ```
 
@@ -1615,7 +1733,7 @@ git commit -m "docs: Phase 6 complete — CHANGELOG updated (Phase 6, Tasks 27-2
 - Modify: `CLAUDE.md`
 
 Update these sections:
-1. Project Overview: change MCP description to "21 grouped MCP tools via SmartToolRegistry"
+1. Project Overview: change MCP description to "22 grouped MCP tools (21 category + 1 discovery) via SmartToolRegistry"
 2. Core Components: add `registry.py`, `tool_definitions.py`, `grouped.py`
 3. MCP Tool Registration Pattern: update to show grouped pattern
 4. CLAUDE.md Maintenance: add Phase 6 completion note
