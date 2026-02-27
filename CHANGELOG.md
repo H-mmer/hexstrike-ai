@@ -4,6 +4,72 @@ All notable changes to HexStrike AI are documented here.
 
 ---
 
+## v7.0.0-dev — Phase 5b: Gap Closure & Hardening
+
+**Branch:** `v7.0-dev`
+**Status:** Complete (28 tasks)
+
+### Summary
+
+Closed critical security gaps (API auth, rate limiting, input validation),
+replaced stub intelligence endpoints with real implementations, added 12 MCP
+tool wrappers (114 total), wrote 33 agent/edge-case tests, and cleaned up
+dead code. Total tests: 689 passing (up from 607).
+
+### New Files
+
+**Core Security:**
+- `core/auth.py` — API key authentication middleware (`@before_request`, header `X-API-Key`, dev-mode bypass)
+- `core/rate_limit.py` — Rate limiting via flask-limiter (60/min default, 10/min for `/api/command`, `/health` exempt)
+- `core/validation.py` — Shared input validation: `is_valid_target()`, `is_valid_domain()`, `sanitize_additional_args()`
+
+**Tests (13 new files, 82 new tests):**
+- `tests/unit/test_auth_middleware.py` — 9 tests (auth bypass, edge cases)
+- `tests/unit/test_rate_limiter.py` — 4 tests (429, exemption, default limit)
+- `tests/unit/test_validation.py` — 23 tests (target/domain/args validation)
+- `tests/unit/test_mcp_client_auth.py` — 2 tests (API key header wiring)
+- `tests/unit/test_routes/test_intelligence_routes.py` — 6 tests (exploit gen, payload tester)
+- `tests/unit/test_proxy_provider_v2.py` — 4 tests (round-robin, from_env)
+- `tests/unit/test_mcp_tools/test_network_mcp_gap.py` — 9 tests (new network MCP tools)
+- `tests/unit/test_mcp_tools/test_system_mcp_gap.py` — 3 tests (telemetry, cache clear, optimize)
+- `tests/unit/test_decision_engine.py` — 5 tests (analyze, select, optimize)
+- `tests/unit/test_bugbounty_manager.py` — 5 tests (recon, vuln hunt, OSINT)
+- `tests/unit/test_ctf_manager.py` — 5 tests (web/crypto/pwn workflows, team strategy)
+- `tests/unit/test_cve_intelligence.py` — 7 tests (NVD fetch, banner, progress, summary)
+- `tests/unit/test_browser_agent.py` — 5 tests (init, setup, navigate, failure)
+
+### Changed Files
+
+**Security hardening:**
+- `core/server.py` — Registers auth middleware + rate limiter
+- `core/routes/network.py` — Wired `is_valid_target()` + `sanitize_additional_args()` into 25+ handlers
+- `core/routes/web.py` — Wired validation into 16+ handlers
+- `core/routes/osint.py` — Wired `is_valid_domain()` for domain params
+- `hexstrike_mcp_tools/client.py` — Added `X-API-Key` header from `HEXSTRIKE_API_KEY` env var
+
+**Stub replacements:**
+- `core/routes/intelligence.py` — Real searchsploit subprocess call, SSRF-safe payload tester, CVE-backed vuln correlator, removed zero-day stub (~130 lines)
+- `agents/proxy_provider.py` — Real round-robin proxy rotation + `from_env()` classmethod
+- `hexstrike_mcp_tools/workflows.py` — Removed zero-day MCP wrapper, added `optimize_tool_parameters`
+
+**Dead code cleanup:**
+- `agents/decision_engine.py` — Removed `_use_advanced_optimizer`, `parameter_optimizer`, `enable/disable_advanced_optimization()`; added missing imports
+- `agents/cve_intelligence.py` — Added `timedelta`, `ModernVisualEngine` imports
+- `managers/file_manager.py` — Truncated from 4309 to ~110 lines (removed dead `@app.route` functions)
+- `tools/{network,web,binary,cloud}/__init__.py` — Wired safe `try/except ImportError` imports
+
+**MCP tool expansion (102 → 114):**
+- `hexstrike_mcp_tools/network.py` — +9 tools: nmap_advanced_scan, fierce_scan, autorecon_scan, nbtscan_scan, scapy_probe, ipv6_scan, udp_proto_scan, cisco_torch_scan, enum4linux_ng_scan
+- `hexstrike_mcp_tools/system.py` — +2 tools: get_telemetry, clear_cache
+- `hexstrike_mcp_tools/workflows.py` — +1 tool: optimize_tool_parameters
+
+### Removed
+
+- Zero-day research endpoint (`/api/vuln-intel/zero-day-research`) and MCP wrapper — stub with no real implementation
+- 3 zero-day tests removed from existing test files
+
+---
+
 ## v7.0.0-dev — Phase 5: Performance, Memory Optimization & Stealth Browser
 
 **Branch:** `v7.0-dev`
