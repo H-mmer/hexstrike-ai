@@ -61,6 +61,9 @@ def create_app():
     from core.auth import register_auth
     register_auth(flask_app)
 
+    from core.rate_limit import register_rate_limiter
+    register_rate_limiter(flask_app)
+
     return flask_app
 
 
