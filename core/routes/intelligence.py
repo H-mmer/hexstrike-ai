@@ -1,9 +1,15 @@
 """AI intelligence, CVE/vuln-intel, and AI payload routes Blueprint."""
+import ipaddress
 import logging
 import re
+import shutil
+import socket
+import subprocess
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
+import requests as requests_lib
 from flask import Blueprint, request, jsonify
 
 logger = logging.getLogger(__name__)
@@ -56,20 +62,41 @@ def _get_cve_intelligence():
 # ---------------------------------------------------------------------------
 
 class _SimpleExploitGenerator:
-    """Minimal exploit generator used when the full server class is not available."""
+    """Exploit lookup via searchsploit (exploitdb)."""
 
     def generate_exploit_from_cve(
         self, cve_data: Dict[str, Any], target_info: Dict[str, Any]
     ) -> Dict[str, Any]:
-        cve_id = cve_data.get("cve_id", "UNKNOWN")
-        exploit_type = target_info.get("exploit_type", "poc")
-        return {
-            "success": True,
-            "cve_id": cve_id,
-            "exploit_type": exploit_type,
-            "exploit_code": f"# Placeholder PoC for {cve_id}\n# Manual exploit development required.",
-            "disclaimer": "This is a placeholder. Actual exploit development requires manual analysis.",
-        }
+        cve_id = cve_data.get("cve_id", "")
+        if not cve_id:
+            return {"success": False, "error": "cve_id is required"}
+
+        if not shutil.which("searchsploit"):
+            return {"success": False, "error": "searchsploit not installed"}
+
+        try:
+            result = subprocess.run(
+                ["searchsploit", "--cve", cve_id, "--json"],
+                capture_output=True, text=True, timeout=30,
+            )
+            if result.returncode != 0:
+                return {"success": True, "exploits": [], "note": "No exploits found"}
+
+            import json as _json
+            data = _json.loads(result.stdout)
+            exploits = [
+                {
+                    "edb_id": e.get("EDB-ID", ""),
+                    "title": e.get("Title", ""),
+                    "path": e.get("Path", ""),
+                }
+                for e in data.get("RESULTS_EXPLOIT", [])
+            ]
+            return {"success": True, "exploits": exploits, "cve_id": cve_id}
+        except subprocess.TimeoutExpired:
+            return {"success": False, "error": "searchsploit timed out"}
+        except Exception as exc:
+            return {"success": False, "error": str(exc)}
 
 
 # ---------------------------------------------------------------------------
@@ -807,39 +834,82 @@ def ai_generate_payload():
         return jsonify({"success": False, "error": f"Server error: {str(e)}"}), 500
 
 
+def _is_safe_url(url: str) -> bool:
+    """Resolve URL hostname and reject private/loopback/link-local/metadata IPs.
+
+    Accepted risk: DNS rebinding (resolve-then-request TOCTOU) is not mitigated.
+    This is a local pentesting tool behind API key auth, not a public web app.
+    """
+    parsed = urlparse(url)
+    hostname = parsed.hostname
+    if not hostname:
+        return False
+    try:
+        addrs = socket.getaddrinfo(hostname, parsed.port or 80)
+    except socket.gaierror:
+        return False
+    for family, _, _, _, sockaddr in addrs:
+        ip = ipaddress.ip_address(sockaddr[0])
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+            return False
+        # Block cloud metadata
+        if str(ip) == "169.254.169.254":
+            return False
+    return True
+
+
+_WAF_HEADERS = {"cf-ray", "x-waf", "x-sucuri-id", "x-cdn"}
+_WAF_SERVERS = {"cloudflare", "akamai", "imperva", "sucuri"}
+
+
 @intelligence_bp.route("/api/ai/test_payload", methods=["POST"])
 def ai_test_payload():
-    """Test generated payload against target with AI analysis."""
+    """Test generated payload against target with SSRF-safe real HTTP request."""
     try:
         params = request.json or {}
         payload = params.get("payload", "")
         target_url = params.get("target_url", "")
-        method = params.get("method", "GET")
+        method = params.get("method", "GET").upper()
 
         if not payload or not target_url:
             return jsonify({"success": False, "error": "Payload and target_url are required"}), 400
 
-        logger.info(f"Testing AI-generated payload against {target_url}")
+        # SSRF guard: block private/loopback/link-local/metadata IPs
+        if not _is_safe_url(target_url):
+            return jsonify({"success": False, "error": "Blocked: target resolves to private/reserved IP"}), 400
 
-        analysis = {
-            "payload_tested": payload,
-            "target_url": target_url,
-            "method": method,
-            "response_size": 0,
-            "success": False,
-            "potential_vulnerability": False,
-            "recommendations": [
-                "Analyze response for payload reflection",
-                "Check for error messages indicating vulnerability",
-                "Monitor application behavior changes",
-            ],
-        }
+        logger.info(f"Testing payload against {target_url} via {method}")
 
-        logger.info(f"Payload test completed")
+        # Send the real request
+        try:
+            if method == "GET":
+                resp = requests_lib.request(method, target_url, params={"q": payload},
+                                            timeout=10, allow_redirects=False)
+            else:
+                resp = requests_lib.request(method, target_url, data={"payload": payload},
+                                            timeout=10, allow_redirects=False)
+        except requests_lib.RequestException as exc:
+            return jsonify({"success": False, "error": f"Request failed: {str(exc)}"}), 502
+
+        body = resp.text[:2048]
+        reflection_detected = payload in body
+
+        # WAF detection
+        resp_headers = {k.lower(): v for k, v in resp.headers.items()}
+        waf_detected = bool(_WAF_HEADERS & set(resp_headers.keys()))
+        server = resp_headers.get("server", "").lower()
+        if any(w in server for w in _WAF_SERVERS):
+            waf_detected = True
+
         return jsonify({
             "success": True,
-            "test_result": {"success": False, "note": "Offline mode — no HTTP request made"},
-            "ai_analysis": analysis,
+            "test_result": {
+                "status_code": resp.status_code,
+                "reflection_detected": reflection_detected,
+                "waf_detected": waf_detected,
+                "response_size": len(resp.text),
+                "body_preview": body[:512],
+            },
             "timestamp": datetime.now().isoformat(),
         })
 
