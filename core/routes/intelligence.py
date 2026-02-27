@@ -45,7 +45,6 @@ def _get_decision_engine():
         engine = IntelligentDecisionEngine()
         # Disable the advanced optimizer path which depends on the server-level
         # parameter_optimizer global that does not exist in the Blueprint context.
-        engine._use_advanced_optimizer = False
         _decision_engine = engine
     return _decision_engine
 
