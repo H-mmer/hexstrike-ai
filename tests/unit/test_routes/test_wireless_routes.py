@@ -67,3 +67,27 @@ def test_rf_route(app):
 def test_wifi_attack_missing_interface(app):
     resp = app.test_client().post('/api/tools/wireless/wifi-attack', json={})
     assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Module import failure tests (503 when tool module not available)
+# ---------------------------------------------------------------------------
+
+def test_wifi_attack_module_unavailable(app):
+    with patch.dict(sys.modules, {'tools.wireless.wifi_tools': None}):
+        resp = app.test_client().post('/api/tools/wireless/wifi-attack',
+                                      json={'interface': 'wlan0'})
+    assert resp.status_code == 503
+
+
+def test_bluetooth_scan_module_unavailable(app):
+    with patch.dict(sys.modules, {'tools.wireless.bluetooth_tools': None}):
+        resp = app.test_client().post('/api/tools/wireless/bluetooth-scan',
+                                      json={'interface': 'hci0'})
+    assert resp.status_code == 503
+
+
+def test_rf_module_unavailable(app):
+    with patch.dict(sys.modules, {'tools.wireless.rf_tools': None}):
+        resp = app.test_client().post('/api/tools/wireless/rf', json={})
+    assert resp.status_code == 503

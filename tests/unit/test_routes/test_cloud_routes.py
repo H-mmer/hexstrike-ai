@@ -102,3 +102,66 @@ def test_cloud_rbac_audit_route_exists(app):
         resp = app.test_client().post('/api/tools/cloud/rbac-audit', json={})
     assert resp.status_code == 200
     assert 'success' in resp.get_json()
+
+
+# ---------------------------------------------------------------------------
+# falco
+# ---------------------------------------------------------------------------
+
+def test_falco_route_exists(app):
+    with patch('core.routes.cloud.subprocess.run') as mock_run, \
+         patch('core.routes.cloud.shutil.which', return_value='/usr/bin/falco'):
+        mock_run.return_value = MagicMock(stdout='{}', stderr='', returncode=0)
+        resp = app.test_client().post('/api/tools/falco',
+                                      json={'config_file': '/etc/falco/falco.yaml'})
+    assert resp.status_code == 200
+    assert 'success' in resp.get_json()
+
+
+def test_falco_route_tool_missing(app):
+    with patch('core.routes.cloud.shutil.which', return_value=None):
+        resp = app.test_client().post('/api/tools/falco',
+                                      json={'config_file': '/etc/falco/falco.yaml'})
+    assert resp.status_code == 503
+
+
+# ---------------------------------------------------------------------------
+# terrascan
+# ---------------------------------------------------------------------------
+
+def test_terrascan_route_exists(app):
+    with patch('core.routes.cloud.subprocess.run') as mock_run, \
+         patch('core.routes.cloud.shutil.which', return_value='/usr/bin/terrascan'):
+        mock_run.return_value = MagicMock(stdout='{}', stderr='', returncode=0)
+        resp = app.test_client().post('/api/tools/terrascan',
+                                      json={'scan_type': 'aws', 'iac_dir': '.'})
+    assert resp.status_code == 200
+    assert 'success' in resp.get_json()
+
+
+def test_terrascan_route_tool_missing(app):
+    with patch('core.routes.cloud.shutil.which', return_value=None):
+        resp = app.test_client().post('/api/tools/terrascan',
+                                      json={'scan_type': 'aws', 'iac_dir': '.'})
+    assert resp.status_code == 503
+
+
+# ---------------------------------------------------------------------------
+# checkov
+# ---------------------------------------------------------------------------
+
+def test_checkov_route_exists(app):
+    with patch('core.routes.cloud.subprocess.run') as mock_run, \
+         patch('core.routes.cloud.shutil.which', return_value='/usr/bin/checkov'):
+        mock_run.return_value = MagicMock(stdout='{}', stderr='', returncode=0)
+        resp = app.test_client().post('/api/tools/checkov',
+                                      json={'directory': '.', 'framework': 'terraform'})
+    assert resp.status_code == 200
+    assert 'success' in resp.get_json()
+
+
+def test_checkov_route_tool_missing(app):
+    with patch('core.routes.cloud.shutil.which', return_value=None):
+        resp = app.test_client().post('/api/tools/checkov',
+                                      json={'directory': '.'})
+    assert resp.status_code == 503

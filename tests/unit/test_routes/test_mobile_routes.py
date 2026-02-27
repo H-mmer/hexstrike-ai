@@ -85,3 +85,28 @@ def test_ios_analyze_missing_param(app):
 def test_drozer_missing_param(app):
     resp = app.test_client().post('/api/tools/mobile/drozer', json={})
     assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Module import failure tests (503 when tool module not available)
+# ---------------------------------------------------------------------------
+
+def test_apk_analyze_module_unavailable(app):
+    with patch.dict(sys.modules, {'tools.mobile.apk_tools': None}):
+        resp = app.test_client().post('/api/tools/mobile/apk-analyze',
+                                      json={'apk_path': '/tmp/test.apk'})
+    assert resp.status_code == 503
+
+
+def test_ios_analyze_module_unavailable(app):
+    with patch.dict(sys.modules, {'tools.mobile.ios_tools': None}):
+        resp = app.test_client().post('/api/tools/mobile/ios-analyze',
+                                      json={'ipa_path': '/tmp/test.ipa'})
+    assert resp.status_code == 503
+
+
+def test_mitm_module_unavailable(app):
+    with patch.dict(sys.modules, {'tools.mobile.mobile_network': None}):
+        resp = app.test_client().post('/api/tools/mobile/mitm',
+                                      json={'interface': 'wlan0'})
+    assert resp.status_code == 503

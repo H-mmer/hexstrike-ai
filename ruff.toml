@@ -1,0 +1,18 @@
+# ruff.toml — Python linter configuration
+line-length = 120
+target-version = "py38"
+
+[lint]
+select = ["E", "F", "W"]
+ignore = [
+    "E501",   # line too long — handled by line-length
+    "E402",   # module level import not at top — we use lazy imports
+    "F401",   # imported but unused — we re-export from __init__
+    "E722",   # bare except — used in graceful degradation
+    "F841",   # local variable assigned but never used — some intentional
+    "W605",   # invalid escape sequence — some regex patterns
+]
+
+[lint.per-file-ignores]
+"tests/*" = ["E", "F", "W"]  # lenient in tests
+"hexstrike_mcp_tools/*" = ["F401"]  # re-exports

@@ -4,10 +4,9 @@ from typing import Optional
 
 import requests
 
-from hexstrike_mcp_tools import mcp, get_client
+from hexstrike_mcp_tools import get_client
 
 
-@mcp.tool()
 def nmap_scan_async(target: str, scan_type: str = "-sV") -> str:
     """Start nmap in background. Returns task_id -- poll with get_task_status()."""
     return get_client().safe_post(
@@ -15,7 +14,6 @@ def nmap_scan_async(target: str, scan_type: str = "-sV") -> str:
     )
 
 
-@mcp.tool()
 def nuclei_scan_async(target: str, templates: Optional[str] = None) -> str:
     """Start nuclei in background. Returns task_id."""
     return get_client().safe_post(
@@ -23,7 +21,6 @@ def nuclei_scan_async(target: str, templates: Optional[str] = None) -> str:
     )
 
 
-@mcp.tool()
 def gobuster_async(target: str, wordlist: Optional[str] = None) -> str:
     """Start gobuster in background. Returns task_id."""
     return get_client().safe_post(
@@ -31,7 +28,6 @@ def gobuster_async(target: str, wordlist: Optional[str] = None) -> str:
     )
 
 
-@mcp.tool()
 def get_task_status(task_id: str) -> str:
     """Poll async task status. Returns status + result when done."""
     client = get_client()

@@ -1,10 +1,9 @@
 # hexstrike_mcp_tools/workflows.py
 """MCP tool registrations for AI workflow tools (CTF, BugBounty, Intelligence)."""
 from typing import Dict, Any, Optional
-from hexstrike_mcp_tools import mcp, get_client
+from hexstrike_mcp_tools import get_client
 
 
-@mcp.tool()
 def analyze_target(target: str, analysis_type: str = "comprehensive") -> Dict[str, Any]:
     """AI-powered target analysis and attack surface mapping using the Intelligent Decision Engine."""
     return get_client().safe_post("api/intelligence/analyze-target", {
@@ -13,7 +12,6 @@ def analyze_target(target: str, analysis_type: str = "comprehensive") -> Dict[st
     })
 
 
-@mcp.tool()
 def select_optimal_tools(target: str, objective: str = "comprehensive") -> Dict[str, Any]:
     """Select the best security tools for a target using AI-driven scoring.
     objective: comprehensive|quick|stealth"""
@@ -23,7 +21,6 @@ def select_optimal_tools(target: str, objective: str = "comprehensive") -> Dict[
     })
 
 
-@mcp.tool()
 def create_attack_chain(target: str, objective: str = "comprehensive") -> Dict[str, Any]:
     """Build an intelligent multi-step attack chain from target profile."""
     return get_client().safe_post("api/intelligence/create-attack-chain", {
@@ -32,7 +29,6 @@ def create_attack_chain(target: str, objective: str = "comprehensive") -> Dict[s
     })
 
 
-@mcp.tool()
 def technology_detection(target: str) -> Dict[str, Any]:
     """Detect technologies on target and return tool recommendations per tech stack."""
     return get_client().safe_post("api/intelligence/technology-detection", {
@@ -40,7 +36,6 @@ def technology_detection(target: str) -> Dict[str, Any]:
     })
 
 
-@mcp.tool()
 def ctf_create_workflow(name: str, category: str = "misc", difficulty: str = "unknown",
                         description: str = "", points: int = 100) -> Dict[str, Any]:
     """Create an AI-driven CTF challenge workflow.
@@ -55,7 +50,6 @@ def ctf_create_workflow(name: str, category: str = "misc", difficulty: str = "un
     })
 
 
-@mcp.tool()
 def ctf_auto_solve(name: str, category: str = "misc", difficulty: str = "unknown",
                    description: str = "", target: str = "") -> Dict[str, Any]:
     """Autonomous CTF challenge solver.
@@ -69,7 +63,6 @@ def ctf_auto_solve(name: str, category: str = "misc", difficulty: str = "unknown
     })
 
 
-@mcp.tool()
 def ctf_suggest_tools(description: str, category: str = "misc") -> Dict[str, Any]:
     """Suggest optimal tools for a CTF challenge based on description and category."""
     return get_client().safe_post("api/ctf/suggest-tools", {
@@ -78,7 +71,6 @@ def ctf_suggest_tools(description: str, category: str = "misc") -> Dict[str, Any
     })
 
 
-@mcp.tool()
 def ctf_crypto_solver(cipher_text: str, cipher_type: str = "unknown",
                        additional_info: str = "") -> Dict[str, Any]:
     """Analyse and suggest solutions for cryptography CTF challenges.
@@ -90,7 +82,6 @@ def ctf_crypto_solver(cipher_text: str, cipher_type: str = "unknown",
     })
 
 
-@mcp.tool()
 def ctf_forensics_analyzer(file_path: str, analysis_type: str = "comprehensive",
                              extract_hidden: bool = True) -> Dict[str, Any]:
     """Forensics challenge analyzer — metadata, steganography, hidden data extraction."""
@@ -101,7 +92,6 @@ def ctf_forensics_analyzer(file_path: str, analysis_type: str = "comprehensive",
     })
 
 
-@mcp.tool()
 def ctf_binary_analyzer(binary_path: str, analysis_depth: str = "comprehensive",
                           find_gadgets: bool = True) -> Dict[str, Any]:
     """Binary analysis for reverse engineering and pwn CTF challenges.
@@ -113,7 +103,6 @@ def ctf_binary_analyzer(binary_path: str, analysis_depth: str = "comprehensive",
     })
 
 
-@mcp.tool()
 def bugbounty_recon(domain: str, scope: Optional[str] = None,
                     program_type: str = "web") -> Dict[str, Any]:
     """Automated bug bounty reconnaissance workflow (subdomain enum, content discovery, params)."""
@@ -124,7 +113,6 @@ def bugbounty_recon(domain: str, scope: Optional[str] = None,
     })
 
 
-@mcp.tool()
 def bugbounty_vuln_hunt(domain: str,
                          priority_vulns: str = "rce,sqli,xss,idor,ssrf") -> Dict[str, Any]:
     """Bug bounty vulnerability hunting workflow prioritized by bounty impact."""
@@ -134,13 +122,11 @@ def bugbounty_vuln_hunt(domain: str,
     })
 
 
-@mcp.tool()
 def bugbounty_osint(domain: str) -> Dict[str, Any]:
     """OSINT gathering workflow for bug bounty (domain intel, social media, email intel)."""
     return get_client().safe_post("api/bugbounty/osint-workflow", {"domain": domain})
 
 
-@mcp.tool()
 def bugbounty_comprehensive(domain: str, include_osint: bool = True,
                               include_business_logic: bool = True) -> Dict[str, Any]:
     """Full bug bounty assessment — recon + vuln hunting + OSINT + business logic."""
@@ -151,7 +137,6 @@ def bugbounty_comprehensive(domain: str, include_osint: bool = True,
     })
 
 
-@mcp.tool()
 def cve_monitor(hours: int = 24, severity_filter: str = "HIGH,CRITICAL",
                 keywords: str = "") -> Dict[str, Any]:
     """Monitor CVE databases for new vulnerabilities with AI exploitability analysis."""
@@ -162,7 +147,6 @@ def cve_monitor(hours: int = 24, severity_filter: str = "HIGH,CRITICAL",
     })
 
 
-@mcp.tool()
 def cve_exploit_generate(cve_id: str, target_os: str = "",
                           exploit_type: str = "poc") -> Dict[str, Any]:
     """Generate exploit proof-of-concept from CVE data using AI analysis."""
@@ -173,7 +157,6 @@ def cve_exploit_generate(cve_id: str, target_os: str = "",
     })
 
 
-@mcp.tool()
 def threat_intelligence(indicators: str, timeframe: str = "30d") -> Dict[str, Any]:
     """Correlate threat intelligence for CVEs, IPs, and file hashes.
     indicators: comma-separated list (CVE-..., IP, hash)"""
@@ -183,7 +166,6 @@ def threat_intelligence(indicators: str, timeframe: str = "30d") -> Dict[str, An
     })
 
 
-@mcp.tool()
 def ai_generate_payload(attack_type: str = "xss",
                          complexity: str = "basic",
                          technology: str = "") -> Dict[str, Any]:
@@ -196,7 +178,6 @@ def ai_generate_payload(attack_type: str = "xss",
     })
 
 
-@mcp.tool()
 def ai_advanced_payload(attack_type: str, evasion_level: str = "standard",
                          target_context: str = "") -> Dict[str, Any]:
     """Generate advanced payloads with AI evasion techniques.
@@ -208,7 +189,6 @@ def ai_advanced_payload(attack_type: str, evasion_level: str = "standard",
     })
 
 
-@mcp.tool()
 def optimize_tool_parameters(target: str, tool: str,
                               context: Optional[str] = None) -> Dict[str, Any]:
     """Optimize tool parameters based on target profile and context using AI analysis."""
