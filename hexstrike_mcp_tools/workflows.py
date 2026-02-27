@@ -184,17 +184,6 @@ def threat_intelligence(indicators: str, timeframe: str = "30d") -> Dict[str, An
 
 
 @mcp.tool()
-def zero_day_research(target_software: str,
-                       analysis_depth: str = "standard") -> Dict[str, Any]:
-    """AI-assisted zero-day vulnerability research for a target software.
-    analysis_depth: quick|standard|comprehensive"""
-    return get_client().safe_post("api/vuln-intel/zero-day-research", {
-        "target_software": target_software,
-        "analysis_depth": analysis_depth,
-    })
-
-
-@mcp.tool()
 def ai_generate_payload(attack_type: str = "xss",
                          complexity: str = "basic",
                          technology: str = "") -> Dict[str, Any]:

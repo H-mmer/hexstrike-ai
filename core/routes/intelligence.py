@@ -104,36 +104,44 @@ class _SimpleExploitGenerator:
 # ---------------------------------------------------------------------------
 
 class _SimpleVulnerabilityCorrelator:
-    """Minimal correlator used when the full server class is not available."""
+    """Correlator that uses CVEIntelligenceManager for real CVE data lookup."""
 
     def find_attack_chains(
         self, target_software: str, attack_depth: int = 3
     ) -> Dict[str, Any]:
-        return {
-            "success": True,
-            "target_software": target_software,
-            "attack_depth": attack_depth,
-            "attack_chains": [
-                {
-                    "chain_id": "CHAIN-001",
-                    "description": f"Simulated attack chain for {target_software}",
-                    "stages": [
-                        {
-                            "stage": 1,
-                            "description": "Initial access via known vulnerability",
-                            "vulnerability": {
-                                "cve_id": "",
-                                "description": f"Input validation flaw in {target_software}",
-                            },
-                            "impact": "Low",
-                        }
-                    ],
+        try:
+            cve_mgr = _get_cve_intelligence()
+        except Exception:
+            return {"success": False, "error": "CVE intelligence not available"}
+
+        try:
+            cves = cve_mgr.fetch_latest_cves(keyword=target_software, max_results=attack_depth)
+            chains = []
+            for i, cve in enumerate(cves if isinstance(cves, list) else cves.get("vulnerabilities", [])):
+                cve_id = cve.get("cve_id", cve.get("id", f"CVE-UNKNOWN-{i}"))
+                desc = cve.get("description", "No description available")
+                chains.append({
+                    "chain_id": f"CHAIN-{i + 1:03d}",
+                    "description": f"Attack chain via {cve_id}",
+                    "stages": [{
+                        "stage": 1,
+                        "description": desc[:200],
+                        "vulnerability": {"cve_id": cve_id, "description": desc[:200]},
+                        "impact": cve.get("severity", "MEDIUM"),
+                    }],
                     "total_stages": 1,
                     "success_probability": 0.5,
-                }
-            ],
-            "total_chains": 1,
-        }
+                })
+            return {
+                "success": True,
+                "target_software": target_software,
+                "attack_depth": attack_depth,
+                "attack_chains": chains,
+                "total_chains": len(chains),
+            }
+        except Exception as exc:
+            logger.error(f"Vulnerability correlator error: {exc}")
+            return {"success": False, "error": str(exc)}
 
 
 # ---------------------------------------------------------------------------
@@ -669,137 +677,6 @@ def threat_intelligence_feeds():
 
     except Exception as e:
         logger.error(f"Error in threat intelligence: {str(e)}")
-        return jsonify({"success": False, "error": f"Server error: {str(e)}"}), 500
-
-
-@intelligence_bp.route("/api/vuln-intel/zero-day-research", methods=["POST"])
-def zero_day_research():
-    """Automated zero-day vulnerability research using AI analysis."""
-    try:
-        params = request.json or {}
-        target_software = params.get("target_software", "")
-        analysis_depth = params.get("analysis_depth", "standard")
-        source_code_url = params.get("source_code_url", "")
-
-        if not target_software:
-            return jsonify({"success": False, "error": "Target software parameter is required"}), 400
-
-        logger.info(f"Starting zero-day research for {target_software} | Depth: {analysis_depth}")
-
-        research_results: Dict[str, Any] = {
-            "target_software": target_software,
-            "analysis_depth": analysis_depth,
-            "research_areas": [],
-            "potential_vulnerabilities": [],
-            "risk_assessment": {},
-            "recommendations": [],
-        }
-
-        common_areas = [
-            "Input validation vulnerabilities",
-            "Memory corruption issues",
-            "Authentication bypasses",
-            "Authorization flaws",
-            "Cryptographic weaknesses",
-            "Race conditions",
-            "Logic flaws",
-        ]
-        web_areas = [
-            "Cross-site scripting (XSS)",
-            "SQL injection",
-            "Server-side request forgery (SSRF)",
-            "Insecure deserialization",
-            "Template injection",
-        ]
-        system_areas = [
-            "Buffer overflows",
-            "Privilege escalation",
-            "Kernel vulnerabilities",
-            "Service exploitation",
-            "Configuration weaknesses",
-        ]
-
-        target_lower = target_software.lower()
-        if any(t in target_lower for t in ["apache", "nginx", "tomcat", "php", "node", "django"]):
-            research_results["research_areas"] = common_areas + web_areas
-        elif any(t in target_lower for t in ["windows", "linux", "kernel", "driver"]):
-            research_results["research_areas"] = common_areas + system_areas
-        else:
-            research_results["research_areas"] = common_areas
-
-        vuln_count = {"quick": 2, "standard": 4, "comprehensive": 6}.get(analysis_depth, 4)
-        areas = research_results["research_areas"]
-        for i in range(vuln_count):
-            research_results["potential_vulnerabilities"].append({
-                "id": f"RESEARCH-{target_software.upper()}-{i + 1:03d}",
-                "category": areas[i % len(areas)],
-                "severity": ["LOW", "MEDIUM", "HIGH", "CRITICAL"][i % 4],
-                "confidence": ["LOW", "MEDIUM", "HIGH"][i % 3],
-                "description": f"Potential {areas[i % len(areas)].lower()} in {target_software}",
-                "attack_vector": "To be determined through further analysis",
-                "impact": "To be assessed",
-                "proof_of_concept": "Research phase - PoC development needed",
-            })
-
-        high_risk_count = sum(
-            1 for v in research_results["potential_vulnerabilities"]
-            if v["severity"] in ["HIGH", "CRITICAL"]
-        )
-        total_vulns = len(research_results["potential_vulnerabilities"])
-
-        research_results["risk_assessment"] = {
-            "total_areas_analyzed": len(areas),
-            "potential_vulnerabilities_found": total_vulns,
-            "high_risk_findings": high_risk_count,
-            "risk_score": min((high_risk_count * 25 + (total_vulns - high_risk_count) * 10), 100),
-            "research_confidence": analysis_depth,
-        }
-
-        if high_risk_count > 0:
-            research_results["recommendations"] = [
-                "Prioritize security testing in identified high-risk areas",
-                "Conduct focused penetration testing",
-                "Implement additional security controls",
-                "Consider bug bounty program for target software",
-                "Perform code review in identified areas",
-            ]
-        else:
-            research_results["recommendations"] = [
-                "Continue standard security testing",
-                "Monitor for new vulnerability research",
-                "Implement defense-in-depth strategies",
-                "Regular security assessments recommended",
-            ]
-
-        if source_code_url:
-            research_results["source_code_analysis"] = {
-                "repository_url": source_code_url,
-                "analysis_status": "simulated",
-                "findings": [
-                    "Static analysis patterns identified",
-                    "Potential code quality issues detected",
-                    "Security-relevant functions located",
-                ],
-                "recommendation": "Manual code review recommended for identified areas",
-            }
-
-        result = {
-            "success": True,
-            "zero_day_research": research_results,
-            "disclaimer": (
-                "This is simulated research for demonstration. "
-                "Real zero-day research requires extensive manual analysis."
-            ),
-            "timestamp": datetime.now().isoformat(),
-        }
-
-        logger.info(
-            f"Zero-day research completed | Risk Score: {research_results['risk_assessment']['risk_score']}"
-        )
-        return jsonify(result)
-
-    except Exception as e:
-        logger.error(f"Error in zero-day research: {str(e)}")
         return jsonify({"success": False, "error": f"Server error: {str(e)}"}), 500
 
 

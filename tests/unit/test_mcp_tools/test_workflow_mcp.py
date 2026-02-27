@@ -174,14 +174,6 @@ def test_threat_intelligence_calls_api():
     assert "threat-feeds" in mock.safe_post.call_args[0][0]
 
 
-def test_zero_day_research_calls_api():
-    mock = _mock_client()
-    import hexstrike_mcp_tools.workflows as w
-    w.zero_day_research("apache httpd", analysis_depth="standard")
-    mock.safe_post.assert_called()
-    assert "zero-day" in mock.safe_post.call_args[0][0]
-
-
 # ---------------------------------------------------------------------------
 # AI payload tools
 # ---------------------------------------------------------------------------
