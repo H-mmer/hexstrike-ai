@@ -761,3 +761,323 @@ tools:
     category: network
     tier: core
     description: "Network address scanner"
+
+  # ============================================================
+  # Phase 6: Registry Expansion — 46 new tools
+  # ============================================================
+
+  # Mobile Security (5 new)
+  drozer:
+    package: drozer
+    manager: pip
+    category: mobile
+    tier: essential
+    description: "Android security assessment framework"
+
+  needle:
+    package: needle
+    manager: pip
+    category: mobile
+    tier: core
+    description: "iOS security testing framework"
+
+  class-dump:
+    package: class-dump
+    manager: apt
+    category: mobile
+    tier: core
+    description: "Objective-C class header dumper"
+
+  cycript:
+    package: cycript
+    manager: apt
+    category: mobile
+    tier: specialized
+    description: "Runtime manipulation for iOS/Mac"
+
+  ipa-analyzer:
+    package: ipa-analyzer
+    manager: pip
+    category: mobile
+    tier: core
+    description: "iOS IPA file analyzer"
+
+  # Wireless Security (6 new)
+  reaver:
+    package: reaver
+    manager: apt
+    category: wireless
+    tier: essential
+    description: "WPS brute-force attack tool"
+
+  fluxion:
+    package: fluxion
+    manager: apt
+    category: wireless
+    tier: core
+    description: "Wireless social engineering tool"
+
+  wifi-pumpkin:
+    package: wifi-pumpkin
+    manager: pip
+    category: wireless
+    tier: core
+    description: "Rogue access point framework"
+
+  btlejack:
+    package: btlejack
+    manager: pip
+    category: wireless
+    tier: specialized
+    description: "Bluetooth Low Energy hijacking tool"
+
+  crackle:
+    package: crackle
+    manager: apt
+    category: wireless
+    tier: specialized
+    description: "BLE encryption cracker"
+
+  cowpatty:
+    package: cowpatty
+    manager: apt
+    category: wireless
+    tier: core
+    description: "WPA-PSK offline dictionary attack"
+
+  # Web Security (7 new)
+  xxeinjector:
+    package: xxeinjector
+    manager: pip
+    category: web
+    tier: core
+    description: "XXE injection automation tool"
+
+  jsluice:
+    package: jsluice
+    manager: apt
+    category: web
+    tier: core
+    description: "JavaScript source code analyzer"
+
+  secretfinder:
+    package: secretfinder
+    manager: pip
+    category: web
+    tier: core
+    description: "Discover secrets in JavaScript files"
+
+  sourcemapper:
+    package: sourcemapper
+    manager: apt
+    category: web
+    tier: core
+    description: "Extract source from JS source maps"
+
+  saml-raider:
+    package: saml-raider
+    manager: pip
+    category: web
+    tier: specialized
+    description: "SAML authentication testing tool"
+
+  ssti-scanner:
+    package: ssti-scanner
+    manager: pip
+    category: web
+    tier: core
+    description: "Server-Side Template Injection scanner"
+
+  crlf-injector:
+    package: crlf-injector
+    manager: pip
+    category: web
+    tier: core
+    description: "CRLF injection vulnerability scanner"
+
+  # Binary Analysis (5 new)
+  cutter:
+    package: cutter
+    manager: apt
+    category: binary
+    tier: core
+    description: "GUI reverse engineering tool powered by rizin"
+
+  unicorn:
+    package: python3-unicorn
+    manager: apt
+    category: binary
+    tier: core
+    description: "CPU emulator framework"
+
+  ret-sync:
+    package: ret-sync
+    manager: pip
+    category: binary
+    tier: specialized
+    description: "Debugger synchronization plugin"
+
+  ida-free:
+    package: ida-free
+    manager: apt
+    category: binary
+    tier: specialized
+    description: "Interactive disassembler (free edition)"
+
+  binary-ninja-free:
+    package: binary-ninja-free
+    manager: apt
+    category: binary
+    tier: specialized
+    description: "Binary analysis platform (free edition)"
+
+  # Cloud Security (7 new)
+  popeye:
+    package: popeye
+    manager: apt
+    category: cloud
+    tier: core
+    description: "Kubernetes cluster resource sanitizer"
+
+  rbac-police:
+    package: rbac-police
+    manager: pip
+    category: cloud
+    tier: core
+    description: "Kubernetes RBAC policy analyzer"
+
+  kubesec:
+    package: kubesec
+    manager: apt
+    category: cloud
+    tier: core
+    description: "Kubernetes resource security analyzer"
+
+  aws-vault:
+    package: aws-vault
+    manager: apt
+    category: cloud
+    tier: core
+    description: "AWS credential management tool"
+
+  deepce:
+    package: deepce
+    manager: apt
+    category: cloud
+    tier: core
+    description: "Docker and container escape detection"
+
+  amicontained:
+    package: amicontained
+    manager: apt
+    category: cloud
+    tier: core
+    description: "Container introspection tool"
+
+  peirates:
+    package: peirates
+    manager: apt
+    category: cloud
+    tier: core
+    description: "Kubernetes penetration testing tool"
+
+  # Network (5 new)
+  nbtscan:
+    package: nbtscan
+    manager: apt
+    category: network
+    tier: core
+    description: "NetBIOS name network scanner"
+
+  cisco-torch:
+    package: cisco-torch
+    manager: apt
+    category: network
+    tier: specialized
+    description: "Cisco device mass scanner and fingerprinter"
+
+  vlan-hopper:
+    package: vlan-hopper
+    manager: apt
+    category: network
+    tier: specialized
+    description: "VLAN hopping attack tool"
+
+  ipv6toolkit:
+    package: ipv6toolkit
+    manager: apt
+    category: network
+    tier: core
+    description: "IPv6 security assessment toolkit"
+
+  udp-proto-scanner:
+    package: udp-proto-scanner
+    manager: apt
+    category: network
+    tier: core
+    description: "UDP service discovery scanner"
+
+  # Forensics (6 new)
+  plaso:
+    package: plaso
+    manager: pip
+    category: forensics
+    tier: core
+    description: "Super timeline forensic analysis"
+
+  rekall:
+    package: rekall
+    manager: pip
+    category: forensics
+    tier: core
+    description: "Memory forensics analysis framework"
+
+  ftk-imager-cli:
+    package: ftk-imager-cli
+    manager: apt
+    category: forensics
+    tier: core
+    description: "Forensic disk imaging tool"
+
+  guymager:
+    package: guymager
+    manager: apt
+    category: forensics
+    tier: core
+    description: "Forensic disk imaging with GUI"
+
+  dc3dd:
+    package: dc3dd
+    manager: apt
+    category: forensics
+    tier: core
+    description: "DoD forensic disk imaging tool"
+
+  cuckoo-sandbox:
+    package: cuckoo
+    manager: pip
+    category: forensics
+    tier: specialized
+    description: "Automated malware analysis sandbox"
+
+  # OSINT (3 new)
+  sherlock:
+    package: sherlock
+    manager: pip
+    category: osint
+    tier: essential
+    description: "Username search across social networks"
+
+  holehe:
+    package: holehe
+    manager: pip
+    category: osint
+    tier: core
+    description: "Email-to-account existence checker"
+
+  social-analyzer:
+    package: social-analyzer
+    manager: pip
+    category: osint
+    tier: core
+    description: "Social media profile analyzer"
