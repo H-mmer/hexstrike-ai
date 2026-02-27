@@ -45,3 +45,20 @@ class SmartToolRegistry:
 
     def tool_count(self) -> int:
         return sum(len(tools) for tools in self._categories.values())
+
+    def dispatch(self, category: str, tool_name: str, params: dict, client) -> dict:
+        """Dispatch a tool call through the API client.
+
+        Args:
+            category: Grouped tool category
+            tool_name: Sub-tool name within the category
+            params: Parameters to pass to the route
+            client: HexStrikeClient instance (has safe_post/safe_get)
+
+        Returns:
+            API response dict
+        """
+        info = self.get_route(category, tool_name)
+        if info["method"] == "GET":
+            return client.safe_get(info["route"], params)
+        return client.safe_post(info["route"], params)

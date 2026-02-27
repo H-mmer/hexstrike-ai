@@ -60,3 +60,28 @@ def test_register_duplicate_overwrites(registry):
                       description="Updated nmap")
     route_info = registry.get_route("network_scan", "nmap")
     assert route_info["route"] == "api/tools/nmap-v2"
+
+
+from unittest.mock import MagicMock
+
+
+def test_dispatch_post_tool(registry):
+    mock_client = MagicMock()
+    mock_client.safe_post.return_value = {"success": True}
+    result = registry.dispatch("network_scan", "nmap", {"target": "10.0.0.1"}, mock_client)
+    mock_client.safe_post.assert_called_once_with("api/tools/nmap", {"target": "10.0.0.1"})
+    assert result == {"success": True}
+
+
+def test_dispatch_get_tool(registry):
+    mock_client = MagicMock()
+    mock_client.safe_get.return_value = {"status": "ok"}
+    result = registry.dispatch("system_admin", "health", {}, mock_client)
+    mock_client.safe_get.assert_called_once_with("health", {})
+    assert result == {"status": "ok"}
+
+
+def test_dispatch_unknown_tool_raises(registry):
+    mock_client = MagicMock()
+    with pytest.raises(KeyError):
+        registry.dispatch("network_scan", "nonexistent", {}, mock_client)
