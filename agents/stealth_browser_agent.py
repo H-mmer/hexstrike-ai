@@ -96,6 +96,8 @@ class StealthBrowserAgent(HumanBehaviourMixin):
         if not self.driver:
             if not self.setup_browser():
                 return {"success": False, "error": "driver not initialised"}
+        if not url.startswith(("http://", "https://")):
+            return {"success": False, "error": "Only http:// and https:// URLs are supported"}
         try:
             self.driver.get(url)
             if self.preset != "minimal":

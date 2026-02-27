@@ -8,8 +8,16 @@ import uuid
 from typing import Any, Dict, Optional
 
 
+_MAX_TASKS = 1000
+_PURGE_AGE_SECONDS = 3600  # 1 hour
+
+
 class TaskStore:
-    """Thread-safe store for async task state: pending -> running -> done/error."""
+    """Thread-safe store for async task state: pending -> running -> done/error.
+
+    Completed/errored tasks older than _PURGE_AGE_SECONDS are evicted
+    automatically when the store exceeds _MAX_TASKS entries.
+    """
 
     def __init__(self) -> None:
         self._tasks: Dict[str, Dict[str, Any]] = {}
@@ -48,6 +56,24 @@ class TaskStore:
             if task_id in self._tasks:
                 self._tasks[task_id].update(fields)
                 self._tasks[task_id]["updated_at"] = time.time()
+            self._maybe_purge()
+
+    def _maybe_purge(self) -> None:
+        """Remove stale completed/errored tasks when over _MAX_TASKS.
+
+        Must be called while self._lock is held.
+        """
+        if len(self._tasks) <= _MAX_TASKS:
+            return
+        now = time.time()
+        to_remove = [
+            tid
+            for tid, t in self._tasks.items()
+            if t["status"] in ("done", "error")
+            and now - t.get("updated_at", 0) > _PURGE_AGE_SECONDS
+        ]
+        for tid in to_remove:
+            del self._tasks[tid]
 
 
 # Module-level singleton

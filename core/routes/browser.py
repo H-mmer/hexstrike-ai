@@ -1,5 +1,11 @@
 # core/routes/browser.py
-"""Stealth browser agent routes Blueprint."""
+"""Stealth browser routes Blueprint.
+
+NOTE: Each request creates a fresh StealthBrowserAgent instance (stateless
+design).  This is intentional — pentesting browser sessions are short-lived and
+isolation between requests prevents cross-contamination.  Session-based pooling
+may be added in a future phase if throughput demands it.
+"""
 import logging
 
 from flask import Blueprint, request, jsonify

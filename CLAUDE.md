@@ -96,7 +96,6 @@ The codebase has been refactored from monolithic files into a clean modular stru
 **Core Components (`core/`):**
 - `server.py` - Flask application factory; registers 14 Blueprints
 - `constants.py` - Shared constants and configuration values
-- `lazy_import.py` - `lazy_import()` helper for deferred module loading in Blueprints (Phase 5)
 - `task_store.py` - TaskStore: in-memory async task tracking with status transitions (Phase 5)
 - `async_runner.py` - `async_run()`: ThreadPoolExecutor wrapper for non-blocking tool execution (Phase 5)
 - `core/routes/` - 14 Flask Blueprints, one per security domain:

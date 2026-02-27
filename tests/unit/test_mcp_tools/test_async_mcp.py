@@ -47,13 +47,13 @@ def test_nmap_scan_async_calls_api():
     assert "async" in call_args[0][0]
 
 
-def test_nmap_scan_async_passes_flags():
+def test_nmap_scan_async_passes_scan_type():
     mock_client = setup_mock_client()
     import hexstrike_mcp_tools.async_tools as at
-    at.nmap_scan_async("10.0.0.1", flags="-sC -sV")
+    at.nmap_scan_async("10.0.0.1", scan_type="-sC -sV")
     call_data = mock_client.safe_post.call_args[0][1]
     assert call_data["target"] == "10.0.0.1"
-    assert call_data["flags"] == "-sC -sV"
+    assert call_data["scan_type"] == "-sC -sV"
 
 
 def test_nuclei_scan_async_calls_api():

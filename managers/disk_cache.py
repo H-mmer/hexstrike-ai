@@ -63,6 +63,9 @@ class DiskTieredCache:
         return None
 
     def set(self, key: str, value: Any, ttl: int = 1800) -> None:
+        # Dual-write: both tiers get every entry so reads always hit the fast
+        # tier first while the disk tier acts as a durable backup for entries
+        # evicted from memory.  Trades ~2x storage for simpler code.
         self._mem.set(key, value, expire=ttl)
         self._disk.set(key, value, expire=ttl)
 

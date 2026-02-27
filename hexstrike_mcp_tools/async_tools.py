@@ -8,10 +8,10 @@ from hexstrike_mcp_tools import mcp, get_client
 
 
 @mcp.tool()
-def nmap_scan_async(target: str, flags: str = "-sV") -> str:
+def nmap_scan_async(target: str, scan_type: str = "-sV") -> str:
     """Start nmap in background. Returns task_id -- poll with get_task_status()."""
     return get_client().safe_post(
-        "api/network/nmap/async", {"target": target, "flags": flags}
+        "/api/network/nmap/async", {"target": target, "scan_type": scan_type}
     )
 
 
@@ -19,7 +19,7 @@ def nmap_scan_async(target: str, flags: str = "-sV") -> str:
 def nuclei_scan_async(target: str, templates: Optional[str] = None) -> str:
     """Start nuclei in background. Returns task_id."""
     return get_client().safe_post(
-        "api/web/nuclei/async", {"target": target, "templates": templates}
+        "/api/web/nuclei/async", {"target": target, "templates": templates}
     )
 
 
@@ -27,7 +27,7 @@ def nuclei_scan_async(target: str, templates: Optional[str] = None) -> str:
 def gobuster_async(target: str, wordlist: Optional[str] = None) -> str:
     """Start gobuster in background. Returns task_id."""
     return get_client().safe_post(
-        "api/web/gobuster/async", {"target": target, "wordlist": wordlist}
+        "/api/web/gobuster/async", {"target": target, "wordlist": wordlist}
     )
 
 
